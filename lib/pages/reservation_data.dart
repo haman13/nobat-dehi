@@ -37,6 +37,6 @@ class ReservationData {
 
   static Future<List<Map<String, dynamic>>> getUserReservations(String phone) async {
     final reservations = await getReservations();
-    return reservations.where((r) => r['phone'] == phone).toList();
+    return reservations.where((r) => r['phoneNumber'] == phone).toList();
   }
 }

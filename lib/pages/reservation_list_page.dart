@@ -5,7 +5,7 @@ import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/pages/reservation_data.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'dart:convert';
+import 'dart:convert';
 // import '../models/reservation.dart';
 
 class ReservationListPage extends StatefulWidget {
@@ -101,6 +101,22 @@ class _ReservationListPageState extends State<ReservationListPage> {
                           Text('تاریخ: ${formatToJalali(reservation.date)}'),
                           Text('ساعت: ${reservation.time}'),
                           Text('قیمت: ${reservation.price} تومان'),
+                          if (reservation.status != 'لغو شده')
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: ElevatedButton(
+                                onPressed: reservation.status == 'لغو شده از سمت ادمین' 
+                                    ? null 
+                                    : () => _cancelReservation(reservation),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor: Colors.grey,
+                                  disabledForegroundColor: Colors.white70,
+                                ),
+                                child: const Text('لغو رزرو'),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -109,6 +125,77 @@ class _ReservationListPageState extends State<ReservationListPage> {
               },
             ),
     );
+  }
+
+  Future<void> _cancelReservation(Reservation reservation) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('لغو رزرو'),
+        content: const Text('آیا از لغو این رزرو اطمینان دارید؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('خیر'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('بله'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final prefs = await SharedPreferences.getInstance();
+      final reservationsJson = prefs.getStringList('reservations') ?? [];
+      
+      final updatedReservations = reservationsJson.map((json) {
+        final res = Reservation.fromJson(jsonDecode(json));
+        if (res.id == reservation.id) {
+          return jsonEncode(Reservation(
+            id: res.id,
+            service: res.service,
+            date: res.date,
+            time: res.time,
+            price: res.price,
+            status: 'لغو شده',
+            phoneNumber: res.phoneNumber,
+            fullName: res.fullName,
+          ).toJson());
+        }
+        return json;
+      }).toList();
+
+      await prefs.setStringList('reservations', updatedReservations);
+      
+      // ذخیره نوتیفیکیشن برای ادمین
+      final notifications = prefs.getStringList('admin_notifications') ?? [];
+      final notification = jsonEncode({
+        'type': 'cancellation',
+        'reservation_id': reservation.id,
+        'service': reservation.service,
+        'date': reservation.date.toIso8601String(),
+        'time': reservation.time,
+        'user_name': reservation.fullName,
+        'user_phone': reservation.phoneNumber,
+        'timestamp': DateTime.now().toIso8601String(),
+        'cancelled_by': 'user'
+      });
+      notifications.add(notification);
+      await prefs.setStringList('admin_notifications', notifications);
+      
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('رزرو با موفقیت لغو شد'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      _loadUserPhone(); // بارگذاری مجدد لیست رزروها
+    }
   }
 
   String formatToJalali(DateTime date) {

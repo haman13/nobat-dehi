@@ -32,6 +32,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   void initState() {
     super.initState();
     _loadData();
+    _loadNotifications();
   }
 
   Future<void> _loadData() async {
@@ -77,6 +78,20 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     });
   }
 
+  Future<void> _loadNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final notificationsJson = prefs.getStringList('admin_notifications') ?? [];
+    final notifications = notificationsJson
+        .map((json) => jsonDecode(json) as Map<String, dynamic>)
+        .toList();
+    
+    setState(() {
+      _notifications = notifications;
+    });
+  }
+
+  List<Map<String, dynamic>> _notifications = [];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,7 +114,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadData,
+        onRefresh: () async {
+          await _loadData();
+          await _loadNotifications();
+        },
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -110,6 +128,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               _buildQuickActions(),
               const SizedBox(height: 24),
               _buildRecentReservations(),
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'نوتیفیکیشن‌ها',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              _buildNotificationsList(),
             ],
           ),
         ),
@@ -401,6 +430,60 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ManageUsersPage()),
+    );
+  }
+
+  Widget _buildNotificationsList() {
+    if (_notifications.isEmpty) {
+      return const Center(
+        child: Text('هیچ نوتیفیکیشنی وجود ندارد'),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _notifications.length,
+      itemBuilder: (context, index) {
+        final notification = _notifications[index];
+        final date = DateTime.parse(notification['timestamp']);
+        
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ListTile(
+            leading: const Icon(Icons.notifications, color: Colors.red),
+            title: Text(
+              notification['type'] == 'cancellation'
+                  ? 'لغو رزرو'
+                  : 'نوتیفیکیشن جدید',
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('خدمت: ${notification['service']}'),
+                Text('تاریخ: ${notification['date'].split('T')[0]}'),
+                Text('ساعت: ${notification['time']}'),
+                Text('کاربر: ${notification['user_name']}'),
+                Text('شماره تماس: ${notification['user_phone']}'),
+                Text(
+                  'زمان: ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                final notifications = prefs.getStringList('admin_notifications') ?? [];
+                notifications.removeAt(index);
+                await prefs.setStringList('admin_notifications', notifications);
+                _loadNotifications();
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 } 

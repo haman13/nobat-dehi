@@ -146,5 +146,5 @@ class AdminCredentials {
 class HardcodedUser {
   static const String phone = '09123456789';
   static const String password = '123456';
-  static const String fullName = 'کاربر ویژه';
+  static const String fullName = 'کاربر ادمین';
 } 
