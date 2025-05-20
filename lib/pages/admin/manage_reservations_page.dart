@@ -182,18 +182,19 @@ class _ManageReservationsPageState extends State<ManageReservationsPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                if (reservation.status == 'در انتظار') ...[
-                                  ElevatedButton(
-                                    onPressed: () => _updateReservationStatus(
-                                        reservation, 'تأیید شده'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
+                                if (reservation.status != 'لغو شده' && reservation.status != 'لغو شده از سمت ادمین') ...[
+                                  if (reservation.status != 'تأیید شده')
+                                    ElevatedButton(
+                                      onPressed: () => _updateReservationStatus(
+                                          reservation, 'تأیید شده'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                      ),
+                                      child: const Text('تأیید'),
                                     ),
-                                    child: const Text('تأیید'),
-                                  ),
                                   ElevatedButton(
                                     onPressed: () => _updateReservationStatus(
-                                        reservation, 'لغو شده'),
+                                        reservation, 'لغو شده از سمت ادمین'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.red,
                                     ),
@@ -205,12 +206,6 @@ class _ManageReservationsPageState extends State<ManageReservationsPage> {
                           ],
                         ),
                       ),
-                      if (reservation.status != 'لغو شده' && reservation.status != 'لغو شده از سمت ادمین')
-                        ListTile(
-                          leading: const Icon(Icons.cancel, color: Colors.red),
-                          title: const Text('لغو رزرو'),
-                          onTap: () => _cancelReservation(reservation),
-                        ),
                     ],
                   ),
                 );

@@ -45,6 +45,7 @@ class SalonApp extends StatelessWidget {
         ),
       ),
       home: const WelcomePage(),
+      
     );
   }
 }

@@ -50,15 +50,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
     setState(() {
       stats['totalReservations'] = allReservations.length;
-      stats['todayReservations'] = allReservations
-          .where((r) => r.date.isAfter(today))
-          .length;
-      stats['weeklyReservations'] = allReservations
-          .where((r) => r.date.isAfter(weekAgo))
-          .length;
-      stats['monthlyReservations'] = allReservations
-          .where((r) => r.date.isAfter(monthAgo))
-          .length;
+      stats['todayReservations'] =
+          allReservations.where((r) => r.date.isAfter(today)).length;
+      stats['weeklyReservations'] =
+          allReservations.where((r) => r.date.isAfter(weekAgo)).length;
+      stats['monthlyReservations'] =
+          allReservations.where((r) => r.date.isAfter(monthAgo)).length;
 
       stats['todayIncome'] = allReservations
           .where((r) => r.date.isAfter(today) && r.status == 'تأیید شده')
@@ -84,7 +81,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     final notifications = notificationsJson
         .map((json) => jsonDecode(json) as Map<String, dynamic>)
         .toList();
-    
+
     setState(() {
       _notifications = notifications;
     });
@@ -127,7 +124,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               const SizedBox(height: 24),
               _buildQuickActions(),
               const SizedBox(height: 24),
-              _buildRecentReservations(),
               const Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Text(
@@ -139,12 +135,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               ),
               _buildNotificationsList(),
+              _buildRecentReservations(),
             ],
           ),
         ),
       ),
     );
   }
+  
 
   Widget _buildStatsGrid() {
     return GridView.count(
@@ -159,7 +157,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           'رزرو امروز',
           '${stats['todayReservations']}',
           '${stats['todayIncome']} ',
-          
           Colors.blue,
         ),
         _buildStatCard(
@@ -231,13 +228,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
               ),
             ],
-            if(subtitle.isNotEmpty) ...[
-              const Text('تومان',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
+            if (subtitle.isNotEmpty) ...[
+              const Text(
+                'تومان',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
               ),
-            ),]
+            ]
           ],
         ),
       ),
@@ -363,7 +362,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     children: [
                       Text('نام: ${reservation.fullName}'),
                       Text('تلفن: ${reservation.phoneNumber}'),
-                      Text('تاریخ: ${reservation.date.toString().split(' ')[0]}'),
+                      Text(
+                          'تاریخ: ${reservation.date.toString().split(' ')[0]}'),
                       Text('ساعت: ${reservation.time}'),
                     ],
                   ),
@@ -447,43 +447,80 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       itemBuilder: (context, index) {
         final notification = _notifications[index];
         final date = DateTime.parse(notification['timestamp']);
-        
+
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: ListTile(
-            leading: const Icon(Icons.notifications, color: Colors.red),
-            title: Text(
-              notification['type'] == 'cancellation'
-                  ? 'لغو رزرو'
-                  : 'نوتیفیکیشن جدید',
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('خدمت: ${notification['service']}'),
-                Text('تاریخ: ${notification['date'].split('T')[0]}'),
-                Text('ساعت: ${notification['time']}'),
-                Text('کاربر: ${notification['user_name']}'),
-                Text('شماره تماس: ${notification['user_phone']}'),
-                Text(
-                  'زمان: ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 12),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(
+                  color: Colors.red,
+                  width: 4,
                 ),
-              ],
+              ),
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                final notifications = prefs.getStringList('admin_notifications') ?? [];
-                notifications.removeAt(index);
-                await prefs.setStringList('admin_notifications', notifications);
-                _loadNotifications();
-              },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        notification['service'],
+                        style: AppTheme.subtitleStyle,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'لغو شده',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('نام: ${notification['user_name']}'),
+                  Text('تلفن: ${notification['user_phone']}'),
+                  Text('تاریخ: ${notification['date'].split('T')[0]}'),
+                  Text('ساعت: ${notification['time']}'),
+                  Text(
+                    'زمان لغو: ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          final notifications = prefs.getStringList('admin_notifications') ?? [];
+                          notifications.removeAt(index);
+                          await prefs.setStringList('admin_notifications', notifications);
+                          _loadNotifications();
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
     );
   }
-} 
+}
