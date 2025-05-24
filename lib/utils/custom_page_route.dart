@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class CustomPageRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
+  @override
   final RouteSettings settings;
   final bool isSlide;
 

@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/pages/user_management.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -107,7 +109,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
                     ),
                     subtitle: Text(user.phone),
                     trailing: IconButton(
-                      icon: Icon(Icons.phone, color: Colors.green),
+                      icon: const Icon(Icons.phone, color: Colors.green),
                       onPressed: () => _callUser(user.phone),
                     ),
                   ),

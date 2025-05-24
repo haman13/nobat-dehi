@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/pages/servicesList.dart';
 import 'package:flutter_application_1/pages/models_list.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'dart:convert';
 
 class ManageServicesPage extends StatefulWidget {
@@ -30,31 +30,53 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
   }
 
   Future<void> _loadServices() async {
-    final prefs = await SharedPreferences.getInstance();
-    final servicesJson = prefs.getString('services');
-    if (servicesJson != null) {
+    try {
+      final response = await SupabaseConfig.client
+          .from('services')
+          .select()
+          .order('created_at', ascending: false);
+      
       setState(() {
-        servicesList = List<Map<String, dynamic>>.from(jsonDecode(servicesJson));
+        servicesList = List<Map<String, dynamic>>.from(response);
       });
-    } else {
+    } catch (e) {
+      // اگر جدول خالی بود یا خطایی رخ داد، از لیست پیش‌فرض استفاده کن
       setState(() {
         servicesList = defaultServices.map((service) => {
           'label': service['label'],
           'icon': service['icon'].codePoint,
         }).toList();
       });
-      await _saveServices();
     }
   }
 
   Future<void> _saveServices() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('services', jsonEncode(servicesList));
+    try {
+      await SupabaseConfig.client.from('services').upsert(
+        servicesList.map((service) => {
+          'label': service['label'],
+          'icon': service['icon'],
+        }).toList(),
+      );
+    } catch (e) {
+      throw Exception('خطا در ذخیره خدمات: $e');
+    }
   }
 
   Future<void> _saveModels() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('models', jsonEncode(modelsList));
+    try {
+      await SupabaseConfig.client.from('models').upsert(
+        modelsList.map((model) => {
+          'name': model['name'],
+          'price': model['price'],
+          'duration': model['duration'],
+          'description': model['description'],
+          'service': model['service'],
+        }).toList(),
+      );
+    } catch (e) {
+      throw Exception('خطا در ذخیره مدل‌ها: $e');
+    }
   }
 
   void _addService() {
@@ -122,13 +144,20 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
                   onPressed: () async {
                     if (nameController.text.isNotEmpty) {
                       try {
+                        // اضافه کردن به Supabase
+                        final response = await SupabaseConfig.client
+                            .from('services')
+                            .insert({
+                              'label': nameController.text,
+                              'icon': selectedIcon.codePoint,
+                            })
+                            .select()
+                            .single();
+
                         setState(() {
-                          servicesList.add({
-                            'label': nameController.text,
-                            'icon': selectedIcon.codePoint,
-                          });
+                          servicesList.add(response);
                         });
-                        await _saveServices();
+                        
                         if (!mounted) return;
                         Navigator.pop(context);
                       } catch (e) {
@@ -137,7 +166,7 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text('خطا'),
-                            content: const Text('خطایی در افزودن خدمت رخ داد. لطفاً دوباره تلاش کنید.'),
+                            content: Text('خطایی در افزودن خدمت رخ داد: $e'),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context),

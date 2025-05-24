@@ -451,7 +451,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(
                 right: BorderSide(
                   color: Colors.red,

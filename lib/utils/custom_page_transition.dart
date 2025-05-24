@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class CustomPageTransition extends PageRouteBuilder {
   final Widget page;
+  @override
   final RouteSettings settings;
   final bool isProfile;
 

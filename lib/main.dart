@@ -5,10 +5,13 @@ import 'pages/admin/admin_login_page.dart';
 import 'pages/admin/admin_dashboard_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_application_1/theme.dart';
+import 'utils/supabase_config.dart';
+import 'package:flutter_application_1/pages/admin/newService.dart';
 
-void main()async {
-   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('fa', null); 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('fa', null);
+  await SupabaseConfig.initialize();
   runApp(const SalonApp());
 }
 
@@ -45,6 +48,7 @@ class SalonApp extends StatelessWidget {
         ),
       ),
       home: const WelcomePage(),
+      
       
     );
   }
