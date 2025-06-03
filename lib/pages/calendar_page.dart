@@ -5,7 +5,9 @@ import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/pages/servicesList.dart';
 import 'package:flutter_application_1/pages/models_list.dart';
 import 'package:flutter_application_1/pages/main_screen.dart';
+import 'package:flutter_application_1/pages/services_page.dart';
 import 'package:flutter_application_1/theme.dart';
+import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
@@ -26,6 +28,7 @@ class _CalendarPageState extends State<CalendarPage> {
   List<Map<String, dynamic>> servicesList = [];
   List<Map<String, dynamic>> modelsList = [];
   Jalali? _selectedDate;
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -36,28 +39,62 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> _loadServices() async {
-    final services = await getServices();
-    setState(() {
-      servicesList = services;
-      columns = services.length <= 5 ? 2 : 3;
-    });
+    try {
+      final response = await SupabaseConfig.client
+          .from('services')
+          .select();
+      setState(() {
+        servicesList = List<Map<String, dynamic>>.from(response);
+        columns = servicesList.length <= 5 ? 2 : 3;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطا در بارگذاری خدمات: $e')),
+      );
+    }
   }
 
   Future<void> _loadModels() async {
-    final models = await getModels();
-    setState(() {
-      modelsList = models;
-    });
+    try {
+      final response = await SupabaseConfig.client
+          .from('models')
+          .select();
+      setState(() {
+        modelsList = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطا در بارگذاری مدل‌ها: $e')),
+      );
+    }
   }
 
   Future<void> _loadReservations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final reservationsJson = prefs.getStringList('reservations') ?? [];
-    setState(() {
-      myReservations = reservationsJson
-          .map((json) => Reservation.fromJson(jsonDecode(json)))
-          .toList();
-    });
+    try {
+      final user = SupabaseConfig.client.auth.currentUser;
+      if (user == null) return;
+
+      final response = await SupabaseConfig.client
+          .from('reservations')
+          .select()
+          .eq('user_id', user.id)
+          .order('date', ascending: true);
+
+      setState(() {
+        myReservations = response.map((json) => Reservation.fromJson(json)).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطا در بارگذاری رزروها: $e')),
+      );
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -89,291 +126,28 @@ class _CalendarPageState extends State<CalendarPage> {
       setState(() {
         _selectedDate = picked;
       });
-      _showServiceSelectionDialog();
+      _onDateSelected(picked);
     }
   }
 
-  void _showServiceSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: FractionallySizedBox(
-            widthFactor: 0.8,
-            heightFactor: servicesList.length <= 4 ? 0.5 : (servicesList.length <= 8 ? 0.7 : 0.8),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  const Text(
-                    'انتخاب خدمات',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.pink
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: servicesList.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 0.9,
-                      ),
-                      itemBuilder: (context, index) {
-                        final service = servicesList[index];
-                        return GestureDetector(
-                          onTap: () => _onServiceSelected(service['label']),
-                          child: _buildServiceTile(
-                            service['icon'],
-                            service['label']
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pinkAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'بستن',
-                      style: TextStyle(color: Colors.white)
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _onServiceSelected(String service) {
+  void _onDateSelected(Jalali date) {
     setState(() {
-      selectedService = service;
+      _selectedDate = date;
     });
-    Navigator.pop(context);
-    _showModelSelectionDialog();
-  }
-
-  void _showModelSelectionDialog() {
-    final serviceModels = modelsList.where((model) => model['service'] == selectedService).toList();
-    
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('انتخاب مدل $selectedService'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: serviceModels.length,
-              itemBuilder: (context, index) {
-                final model = serviceModels[index];
-                return ListTile(
-                  title: Text(model['name']),
-                  subtitle: Text('${model['price']} تومان - ${model['duration']}'),
-                  onTap: () {
-                    setState(() {
-                      selectedModel = model;
-                    });
-                    Navigator.pop(context);
-                    _showTimeSelectionDialog();
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showTimeSelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('انتخاب ساعت'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('ساعات در دسترس:'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  '09:00',
-                  '10:00',
-                  '11:00',
-                  '12:00',
-                  '13:00',
-                  '14:00',
-                  '15:00',
-                  '16:00',
-                  '17:00',
-                  '18:00',
-                ].map((time) {
-                  return ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showFinalConfirmationDialog(time);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pinkAccent,
-                    ),
-                    child: Text(time),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showFinalConfirmationDialog(String selectedTime) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userPhone = prefs.getString('phone') ?? '';
-    final fullName = prefs.getString('fullname') ?? 'نامشخص';
-
-    // چک کردن رزروهای قبلی
-    final reservationsJson = prefs.getStringList('reservations') ?? [];
-    final existingReservations = reservationsJson
-        .map((json) => Reservation.fromJson(jsonDecode(json)))
-        .toList();
-
-    final newReservation = Reservation(
-      id: UniqueKey().toString(),
-      service: selectedService,
-      date: _selectedDate!.toDateTime(),
-      time: selectedTime,
-      price: selectedModel['price'],
-      status: 'در انتظار',
-      phoneNumber: userPhone,
-      fullName: fullName,
-    );
-
-    if (isDuplicateReservation(existingReservations, newReservation)) {
-      showErrorDialog(
-        context,
-        'شما قبلاً این خدمت را در این تاریخ و ساعت رزرو کرده‌اید.',
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('تأیید نهایی'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    selectedService,
-                    style: const TextStyle(
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.bold
-                    ),
-                  ),
-                  const SizedBox(width: 5.0),
-                  const Text(':خدمت انتخابی'),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text('مدل: ${selectedModel['name']}'),
-              const SizedBox(height: 4),
-              Text('تاریخ: ${_selectedDate!.year}/${_selectedDate!.month}/${_selectedDate!.day}'),
-              const SizedBox(height: 4),
-              Text('ساعت: $selectedTime'),
-              const SizedBox(height: 4),
-              Text('مدت زمان: ${selectedModel['duration']}'),
-              const SizedBox(height: 4),
-              Text('قیمت: ${selectedModel['price']} تومان'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const MainScreen(
-                      isLoggedIn: true,
-                      initialIndex: 0,
-                    ),
-                  ),
-                );
-              },
-              child: const Text('انصراف'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context, true);
-                final reservation = Reservation(
-                  id: UniqueKey().toString(),
-                  service: selectedService,
-                  date: _selectedDate!.toDateTime(),
-                  time: selectedTime,
-                  price: selectedModel['price'],
-                  status: 'در انتظار',
-                  phoneNumber: userPhone,
-                  fullName: fullName,
-                );
-
-                await saveReservation(reservation);
-                setState(() {
-                  myReservations.add(reservation);
-                });
-                
-                if (!mounted) return;
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const MainScreen(
-                      isLoggedIn: true,
-                      initialIndex: 0,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pinkAccent,
-              ),
-              child: const Text('تأیید'),
-            ),
-          ],
-        );
-      },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ServicesPage(selectedDate: date),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('رزرو نوبت'),

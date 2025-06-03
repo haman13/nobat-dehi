@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_application_1/models/reservation.dart';
-import 'package:flutter_application_1/pages/reservation_data.dart';
+import 'package:flutter_application_1/models/reservation_data.dart';
+import 'package:flutter_application_1/theme.dart';
+import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/pages/calendar_page.dart';
+import 'package:flutter_application_1/pages/main_screen.dart';
 
 class ReservationPage extends StatefulWidget {
-  const ReservationPage({Key? key}) : super(key: key);
+  const ReservationPage({super.key});
 
   @override
   State<ReservationPage> createState() => _ReservationPageState();
@@ -13,75 +16,40 @@ class ReservationPage extends StatefulWidget {
 
 class _ReservationPageState extends State<ReservationPage> {
   final _formKey = GlobalKey<FormState>();
-  String? _selectedService;
-  Jalali? _selectedDate;
-  String? _selectedTime;
-  int _selectedServicePrice = 0;
+  final _notesController = TextEditingController();
   bool _isLoading = false;
 
-  final List<String> _services = [
-    'کوتاهی مو',
-    'رنگ مو',
-    'هایلایت',
-    'کراتینه',
-    'مژه',
-    'ابرو',
-    'ناخن',
-  ];
+  late final ReservationData _reservationData;
+  String _userFullName = '';
+  String _userPhone = '';
 
-  final Map<String, int> _servicePrices = {
-    'کوتاهی مو': 150000,
-    'رنگ مو': 350000,
-    'هایلایت': 450000,
-    'کراتینه': 600000,
-    'مژه': 250000,
-    'ابرو': 100000,
-    'ناخن': 200000,
-  };
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reservationData = ModalRoute.of(context)!.settings.arguments as ReservationData;
+    _loadUserInfo();
+  }
 
-  final List<String> _times = [
-    '10:00',
-    '11:00',
-    '12:00',
-    '13:00',
-    '14:00',
-    '15:00',
-    '16:00',
-    '17:00',
-    '18:00',
-    '19:00',
-  ];
-
-  Future<void> _selectDate(BuildContext context) async {
-    final now = Jalali.now();
-    final lastDate = now.addDays(30);
-    
-    final Jalali? picked = await showPersianDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: lastDate,
-      initialEntryMode: PDatePickerEntryMode.calendarOnly,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.pinkAccent,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
+  Future<void> _loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final phone = prefs.getString('phone') ?? '';
+    if (phone.isNotEmpty) {
+      final user = await SupabaseConfig.client
+          .from('users')
+          .select()
+          .eq('phone', phone)
+          .maybeSingle();
       setState(() {
-        _selectedDate = picked;
+        _userFullName = user?['full_name'] ?? '';
+        _userPhone = user?['phone'] ?? '';
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 
   Future<void> _submitReservation() async {
@@ -92,38 +60,61 @@ class _ReservationPageState extends State<ReservationPage> {
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final phoneNumber = prefs.getString('phone') ?? '';
-      final fullName = prefs.getString('fullname') ?? 'نامشخص';
+      // بررسی وجود رزرو فعال برای این زمان
+      final existingReservations = await SupabaseConfig.client
+          .from('reservations')
+          .select()
+          .eq('date', _reservationData.date.toDateTime().toIso8601String().substring(0, 10))
+          .eq('time', _reservationData.model['time'].toString())
+          .eq('model_id', _reservationData.model['id'])
+          .or('status.eq.pending,status.eq.confirmed,status.eq.در انتظار,status.eq.تایید شده');
 
-      final reservation = Reservation(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        service: _selectedService!,
-        date: _selectedDate!.toDateTime(),
-        time: _selectedTime!,
-        price: _selectedServicePrice,
-        status: 'در انتظار',
-        phoneNumber: phoneNumber,
-        fullName: fullName,
-      );
+      if (existingReservations != null && existingReservations.isNotEmpty) {
+        throw Exception('این بازه زمانی قبلاً رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.');
+      }
 
-      await ReservationData.addReservation(reservation.toJson());
+      // بررسی مجدد قبل از ثبت نهایی
+      final finalCheck = await SupabaseConfig.client
+          .from('reservations')
+          .select()
+          .eq('date', _reservationData.date.toDateTime().toIso8601String().substring(0, 10))
+          .eq('time', _reservationData.model['time'].toString())
+          .eq('model_id', _reservationData.model['id'])
+          .or('status.eq.pending,status.eq.confirmed,status.eq.در انتظار,status.eq.تایید شده');
+
+      if (finalCheck != null && finalCheck.isNotEmpty) {
+        throw Exception('این بازه زمانی در لحظه ثبت رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.');
+      }
+
+      await SupabaseConfig.client.from('reservations').insert({
+        'date': _reservationData.date.toDateTime().toIso8601String().substring(0, 10),
+        'service': _reservationData.service,
+        'model_id': _reservationData.model['id'],
+        'service_id': _reservationData.model['service_id'] ?? null,
+        'customer_name': _userFullName,
+        'customer_phone': _userPhone,
+        'notes': _notesController.text,
+        'status': 'pending',
+        'time': _reservationData.model['time'].toString(),
+      });
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('رزرو با موفقیت ثبت شد'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('رزرو با موفقیت ثبت شد')),
       );
-      Navigator.pop(context);
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainScreen(isLoggedIn: true)),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
+      String errorMsg = 'خطا در ثبت رزرو: $e';
+      if (e.toString().contains('unique_reservation_per_slot') || e.toString().contains('23505')) {
+        errorMsg = 'این بازه زمانی قبلاً رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('خطا در ثبت رزرو'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(errorMsg)),
       );
     } finally {
       if (mounted) {
@@ -138,9 +129,8 @@ class _ReservationPageState extends State<ReservationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('رزرو نوبت'),
+        title: const Text('تکمیل رزرو'),
         centerTitle: true,
-        backgroundColor: Colors.pink[400],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -149,100 +139,81 @@ class _ReservationPageState extends State<ReservationPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DropdownButtonFormField<String>(
-                value: _selectedService,
-                decoration: const InputDecoration(
-                  labelText: 'سرویس',
-                  border: OutlineInputBorder(),
-                ),
-                items: _services.map((String service) {
-                  return DropdownMenuItem<String>(
-                    value: service,
-                    child: Text(service),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedService = newValue;
-                    _selectedServicePrice = _servicePrices[newValue!] ?? 0;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'لطفاً یک سرویس انتخاب کنید';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () => _selectDate(context),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'تاریخ',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Text(
-                    _selectedDate != null
-                        ? '${_selectedDate!.year}/${_selectedDate!.month}/${_selectedDate!.day}'
-                        : 'انتخاب تاریخ',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'اطلاعات رزرو',
+                        style: AppTheme.subtitleStyle,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInfoRow('تاریخ', _reservationData.date.formatFullDate()),
+                      _buildInfoRow('خدمت', _reservationData.service),
+                      _buildInfoRow('مدل', _reservationData.model['name']),
+                      _buildInfoRow('قیمت', '${_reservationData.model['price']} تومان'),
+                      _buildInfoRow('مدت زمان', _reservationData.model['duration']),
+                      _buildInfoRow('نام شما', _userFullName),
+                      _buildInfoRow('شماره تماس', _userPhone),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedTime,
-                decoration: const InputDecoration(
-                  labelText: 'ساعت',
-                  border: OutlineInputBorder(),
-                ),
-                items: _times.map((String time) {
-                  return DropdownMenuItem<String>(
-                    value: time,
-                    child: Text(time),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedTime = newValue;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'لطفاً یک ساعت انتخاب کنید';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 24),
-              if (_selectedService != null)
-                Text(
-                  'قیمت: $_selectedServicePrice تومان',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Text(
+                'توضیحات (اختیاری)',
+                style: AppTheme.subtitleStyle,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(
+                  labelText: 'توضیحات (اختیاری)',
+                  border: OutlineInputBorder(),
                 ),
+                maxLines: 3,
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submitReservation,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.pinkAccent,
-                  ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'ثبت رزرو',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                      ? const CircularProgressIndicator()
+                      : const Text('ثبت رزرو'),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 16,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }

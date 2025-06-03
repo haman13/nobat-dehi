@@ -6,33 +6,6 @@ import 'dart:convert';
 import 'package:flutter_application_1/theme.dart';
 
 final List<Map<String, dynamic>> defaultServices = [
-  {'icon': Icons.content_cut, 'label': 'کوتاهی مو'},
-  {'icon': Icons.brush, 'label': 'رنگ مو'},
-  {'icon': Icons.spa, 'label': 'پاکسازی پوست'},
-  {'icon': Icons.abc, 'label': 'ناخن'},
-  {'icon': Icons.face_retouching_natural, 'label': 'میکاپ'},
-  {'icon': Icons.handshake, 'label': 'براشینگ'},
-  {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
-  // {'icon': Icons.wash, 'label': 'شستشوی مو'},
 ];
 
 Future<List<Map<String, dynamic>>> getServices() async {

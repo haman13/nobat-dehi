@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/pages/servicesList.dart';
 import 'package:flutter_application_1/pages/models_list.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
-import 'dart:convert';
 
 class ManageServicesPage extends StatefulWidget {
   const ManageServicesPage({super.key});
@@ -33,9 +32,7 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
     try {
       final response = await SupabaseConfig.client
           .from('services')
-          .select()
-          .order('created_at', ascending: false);
-      
+          .select();
       setState(() {
         servicesList = List<Map<String, dynamic>>.from(response);
       });

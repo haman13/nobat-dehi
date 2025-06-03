@@ -8,7 +8,11 @@ class AppTheme {
   static const Color primaryLightColor = Color(0xFFFCE4EC); // pink[50]
   static const Color primaryLightColor2 = Color(0xFFF8BBD0); // pink[100]
   static const Color primaryLightColor3 = Color.fromARGB(255, 165, 213, 241); // pink[100]
-  
+  static const Color todayReservationColor = Colors.blue;
+  static const Color weekReservationColor = Colors.green;
+  static const Color monthReservationColor = Colors.orange;
+  static const Color allReservationColor = Colors.purple;
+
   // رنگ‌های متن
   static const Color textPrimaryColor = Color(0xFFE91E63); // pink[800]
   static const Color textOnPrimaryColor = Colors.white;

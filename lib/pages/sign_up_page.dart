@@ -1,11 +1,11 @@
 // ignore_for_file: unused_local_variable, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/pages/user_management.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:flutter_application_1/widgets/animated_button.dart';
+import 'package:flutter_application_1/utils/supabase_user_service.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -54,13 +54,12 @@ class _SignUpPageState extends State<SignUpPage> {
         return;
       }
 
-      final user = User(
+      // ثبت نام در Supabase
+      await SupabaseUserService.signUp(
         fullName: name,
         phone: phone,
         password: password,
       );
-
-      await UserManagement.saveUser(user);
 
       // ذخیره اطلاعات کاربر فعلی
       final prefs = await SharedPreferences.getInstance();

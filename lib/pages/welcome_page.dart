@@ -9,6 +9,7 @@ import 'sign_up_page.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/utils/custom_page_route.dart';
+import 'package:flutter_application_1/utils/supabase_user_service.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({Key? key}) : super(key: key);
@@ -53,8 +54,6 @@ class _WelcomePageState extends State<WelcomePage> {
           return;
         }
 
-        final user = await UserManagement.getUserByPhone(enteredPhone);
-
         // ورود سریع با کاربر هاردکد
         if (enteredPhone == HardcodedUser.phone && enteredPassword == HardcodedUser.password) {
           final prefs = await SharedPreferences.getInstance();
@@ -76,15 +75,15 @@ class _WelcomePageState extends State<WelcomePage> {
           return;
         }
 
+        // ورود کاربران معمولی از دیتابیس Supabase
+        final user = await SupabaseUserService.getUserByPhone(enteredPhone);
         if (user != null && user['password'] == enteredPassword) {
-          // ذخیره اطلاعات کاربر فعلی
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('fullname', user['fullName']);
+          await prefs.setString('fullname', user['full_name']);
           await prefs.setString('phone', user['phone']);
           await prefs.setString('password', user['password']);
 
           if (!mounted) return;
-          
           Navigator.pushReplacement(
             context,
             CustomPageRoute(
@@ -97,7 +96,6 @@ class _WelcomePageState extends State<WelcomePage> {
           );
         } else {
           if (!mounted) return;
-          
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -114,7 +112,6 @@ class _WelcomePageState extends State<WelcomePage> {
         }
       } catch (e) {
         if (!mounted) return;
-        
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
