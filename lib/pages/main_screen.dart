@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/pages/calendar_page.dart';
+import 'package:flutter_application_1/pages/services_list_page.dart';
 import 'package:flutter_application_1/pages/reservations_page.dart';
 import 'package:flutter_application_1/pages/user_profile_page.dart';
 import 'package:flutter_application_1/pages/welcome_page.dart';
@@ -65,7 +65,7 @@ class _MainScreenState extends State<MainScreen> {
         controller: _pageController,
         onPageChanged: _onPageChanged,
         children: [
-          const CalendarPage(isLoggedIn: true),
+          const ServicesListPage(isLoggedIn: true),
           const ReservationsPage(),
           UserProfilePage(
             phoneNumber: _phoneNumber,
@@ -105,8 +105,8 @@ class _MainScreenState extends State<MainScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavButton(
-                  icon: Icons.calendar_today,
-                  label: 'تقویم',
+                  icon: Icons.spa,
+                  label: 'خدمات',
                   isSelected: _selectedIndex == 0,
                   onTap: () => _onNavItemTapped(0),
                 ),
@@ -141,7 +141,8 @@ class _MainScreenState extends State<MainScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+          color:
+              isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -154,9 +155,9 @@ class _MainScreenState extends State<MainScreen> {
                 color: AppTheme.primaryLightColor,
                 boxShadow: [
                   BoxShadow(
-                    color: isSelected 
-                      ? AppTheme.primaryColor.withOpacity(0.3)
-                      : Colors.grey.withOpacity(0.2),
+                    color: isSelected
+                        ? AppTheme.primaryColor.withOpacity(0.3)
+                        : Colors.grey.withOpacity(0.2),
                     spreadRadius: 1,
                     blurRadius: 4,
                     offset: const Offset(0, 2),
@@ -165,7 +166,9 @@ class _MainScreenState extends State<MainScreen> {
               ),
               child: Icon(
                 icon,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.primaryColor.withOpacity(0.7),
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : AppTheme.primaryColor.withOpacity(0.7),
                 size: 24,
               ),
             ),
@@ -173,7 +176,9 @@ class _MainScreenState extends State<MainScreen> {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? AppTheme.primaryColor : AppTheme.primaryColor.withOpacity(0.7),
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : AppTheme.primaryColor.withOpacity(0.7),
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),

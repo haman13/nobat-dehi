@@ -4,7 +4,6 @@ import 'package:flutter_application_1/theme.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_application_1/pages/calendar_page.dart';
 import 'package:flutter_application_1/pages/main_screen.dart';
 
 class ReservationPage extends StatefulWidget {
@@ -26,7 +25,8 @@ class _ReservationPageState extends State<ReservationPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _reservationData = ModalRoute.of(context)!.settings.arguments as ReservationData;
+    _reservationData =
+        ModalRoute.of(context)!.settings.arguments as ReservationData;
     _loadUserInfo();
   }
 
@@ -64,33 +64,48 @@ class _ReservationPageState extends State<ReservationPage> {
       final existingReservations = await SupabaseConfig.client
           .from('reservations')
           .select()
-          .eq('date', _reservationData.date.toDateTime().toIso8601String().substring(0, 10))
+          .eq(
+              'date',
+              _reservationData.date
+                  .toDateTime()
+                  .toIso8601String()
+                  .substring(0, 10))
           .eq('time', _reservationData.model['time'].toString())
           .eq('model_id', _reservationData.model['id'])
           .or('status.eq.pending,status.eq.confirmed,status.eq.در انتظار,status.eq.تایید شده');
 
-      if (existingReservations != null && existingReservations.isNotEmpty) {
-        throw Exception('این بازه زمانی قبلاً رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.');
+      if (existingReservations.isNotEmpty) {
+        throw Exception(
+            'این بازه زمانی قبلاً رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.');
       }
 
       // بررسی مجدد قبل از ثبت نهایی
       final finalCheck = await SupabaseConfig.client
           .from('reservations')
           .select()
-          .eq('date', _reservationData.date.toDateTime().toIso8601String().substring(0, 10))
+          .eq(
+              'date',
+              _reservationData.date
+                  .toDateTime()
+                  .toIso8601String()
+                  .substring(0, 10))
           .eq('time', _reservationData.model['time'].toString())
           .eq('model_id', _reservationData.model['id'])
           .or('status.eq.pending,status.eq.confirmed,status.eq.در انتظار,status.eq.تایید شده');
 
-      if (finalCheck != null && finalCheck.isNotEmpty) {
-        throw Exception('این بازه زمانی در لحظه ثبت رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.');
+      if (finalCheck.isNotEmpty) {
+        throw Exception(
+            'این بازه زمانی در لحظه ثبت رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.');
       }
 
       await SupabaseConfig.client.from('reservations').insert({
-        'date': _reservationData.date.toDateTime().toIso8601String().substring(0, 10),
+        'date': _reservationData.date
+            .toDateTime()
+            .toIso8601String()
+            .substring(0, 10),
         'service': _reservationData.service,
         'model_id': _reservationData.model['id'],
-        'service_id': _reservationData.model['service_id'] ?? null,
+        'service_id': _reservationData.model['service_id'],
         'customer_name': _userFullName,
         'customer_phone': _userPhone,
         'notes': _notesController.text,
@@ -104,14 +119,17 @@ class _ReservationPageState extends State<ReservationPage> {
       );
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const MainScreen(isLoggedIn: true)),
+        MaterialPageRoute(
+            builder: (context) => const MainScreen(isLoggedIn: true)),
         (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
       String errorMsg = 'خطا در ثبت رزرو: $e';
-      if (e.toString().contains('unique_reservation_per_slot') || e.toString().contains('23505')) {
-        errorMsg = 'این بازه زمانی قبلاً رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.';
+      if (e.toString().contains('unique_reservation_per_slot') ||
+          e.toString().contains('23505')) {
+        errorMsg =
+            'این بازه زمانی قبلاً رزرو شده است. لطفاً ساعت دیگری را انتخاب کنید.';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMsg)),
@@ -145,16 +163,19 @@ class _ReservationPageState extends State<ReservationPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'اطلاعات رزرو',
                         style: AppTheme.subtitleStyle,
                       ),
                       const SizedBox(height: 16),
-                      _buildInfoRow('تاریخ', _reservationData.date.formatFullDate()),
+                      _buildInfoRow(
+                          'تاریخ', _reservationData.date.formatFullDate()),
                       _buildInfoRow('خدمت', _reservationData.service),
                       _buildInfoRow('مدل', _reservationData.model['name']),
-                      _buildInfoRow('قیمت', '${_reservationData.model['price']} تومان'),
-                      _buildInfoRow('مدت زمان', _reservationData.model['duration']),
+                      _buildInfoRow(
+                          'قیمت', '${_reservationData.model['price']} تومان'),
+                      _buildInfoRow(
+                          'مدت زمان', _reservationData.model['duration']),
                       _buildInfoRow('نام شما', _userFullName),
                       _buildInfoRow('شماره تماس', _userPhone),
                     ],
@@ -162,7 +183,7 @@ class _ReservationPageState extends State<ReservationPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
+              const Text(
                 'توضیحات (اختیاری)',
                 style: AppTheme.subtitleStyle,
               ),
@@ -217,4 +238,4 @@ class _ReservationPageState extends State<ReservationPage> {
       ),
     );
   }
-} 
+}

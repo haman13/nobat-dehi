@@ -6,7 +6,6 @@ import 'pages/admin/admin_dashboard_page.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'utils/supabase_config.dart';
-import 'pages/services_page.dart';
 import 'pages/reservation_page.dart';
 
 void main() async {
@@ -32,15 +31,6 @@ class SalonApp extends StatelessWidget {
         '/admin/dashboard': (context) => const AdminDashboardPage(),
         '/reservation': (context) => const ReservationPage(),
       },
-      onGenerateRoute: (settings) {
-        if (settings.name == '/services') {
-          final args = settings.arguments as Map<String, dynamic>;
-          return MaterialPageRoute(
-            builder: (context) => ServicesPage(selectedDate: args['date']),
-          );
-        }
-        return null;
-      },
       theme: ThemeData(
         primaryColor: AppTheme.primaryColor,
         scaffoldBackgroundColor: AppTheme.backgroundColor,
@@ -59,8 +49,6 @@ class SalonApp extends StatelessWidget {
         ),
       ),
       home: const WelcomePage(),
-      
-      
     );
   }
 }

@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "flutter_application_1 (Chrome)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "chrome",
+            "args": [
+                "--hot"
+            ]
+        },
+        {
+            "name": "flutter_application_1 (Windows)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "windows",
+            "args": [
+                "--hot"
+            ]
+        },
+        {
+            "name": "flutter_application_1 (Profile)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        }
+    ]
+}

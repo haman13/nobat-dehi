@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/pages/servicesList.dart';
-import 'package:flutter_application_1/pages/models_list.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
 
 class ManageServicesPage extends StatefulWidget {
@@ -10,16 +8,18 @@ class ManageServicesPage extends StatefulWidget {
   State<ManageServicesPage> createState() => _ManageServicesPageState();
 }
 
-class _ManageServicesPageState extends State<ManageServicesPage> with SingleTickerProviderStateMixin {
+class _ManageServicesPageState extends State<ManageServicesPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Map<String, dynamic>> servicesList = [];
-  List<Map<String, dynamic>> modelsList = List.from(models);
+  List<Map<String, dynamic>> modelsList = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadServices();
+    _loadModels();
   }
 
   @override
@@ -30,19 +30,29 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
 
   Future<void> _loadServices() async {
     try {
-      final response = await SupabaseConfig.client
-          .from('services')
-          .select();
+      final response = await SupabaseConfig.client.from('services').select();
       setState(() {
         servicesList = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      // اگر جدول خالی بود یا خطایی رخ داد، از لیست پیش‌فرض استفاده کن
+      print('خطا در بارگذاری خدمات: $e');
       setState(() {
-        servicesList = defaultServices.map((service) => {
-          'label': service['label'],
-          'icon': service['icon'].codePoint,
-        }).toList();
+        servicesList = [];
+      });
+    }
+  }
+
+  Future<void> _loadModels() async {
+    try {
+      final response = await SupabaseConfig.client.from('models').select();
+      setState(() {
+        modelsList = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      print('خطا در بارگذاری مدل‌ها: $e');
+      // در صورت خطا، لیست خالی نگه داریم
+      setState(() {
+        modelsList = [];
       });
     }
   }
@@ -50,11 +60,13 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
   Future<void> _saveServices() async {
     try {
       await SupabaseConfig.client.from('services').upsert(
-        servicesList.map((service) => {
-          'label': service['label'],
-          'icon': service['icon'],
-        }).toList(),
-      );
+            servicesList
+                .map((service) => {
+                      'label': service['label'],
+                      'icon': service['icon'],
+                    })
+                .toList(),
+          );
     } catch (e) {
       throw Exception('خطا در ذخیره خدمات: $e');
     }
@@ -63,14 +75,17 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
   Future<void> _saveModels() async {
     try {
       await SupabaseConfig.client.from('models').upsert(
-        modelsList.map((model) => {
-          'name': model['name'],
-          'price': model['price'],
-          'duration': model['duration'],
-          'description': model['description'],
-          'service': model['service'],
-        }).toList(),
-      );
+            modelsList
+                .map((model) => {
+                      'name': model['name'],
+                      'price': model['price'],
+                      'duration': model['duration'],
+                      'description': model['description'],
+                      'service_id': model['service_id'], // اصلاح شده
+                    })
+                .toList(),
+          );
+      _loadModels(); // ریلود کردن لیست بعد از ذخیره
     } catch (e) {
       throw Exception('خطا در ذخیره مدل‌ها: $e');
     }
@@ -103,7 +118,8 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
                   Wrap(
                     spacing: 8,
                     children: [
-                      _buildIconOption(Icons.cleaning_services, selectedIcon, (icon) {
+                      _buildIconOption(Icons.cleaning_services, selectedIcon,
+                          (icon) {
                         setDialogState(() {
                           selectedIcon = icon;
                         });
@@ -154,7 +170,7 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
                         setState(() {
                           servicesList.add(response);
                         });
-                        
+
                         if (!mounted) return;
                         Navigator.pop(context);
                       } catch (e) {
@@ -186,6 +202,15 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
   }
 
   void _addModel() {
+    if (servicesList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ابتدا باید حداقل یک خدمت اضافه کنید'),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) {
@@ -193,69 +218,71 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
         final priceController = TextEditingController();
         final durationController = TextEditingController();
         final descriptionController = TextEditingController();
-        String selectedService = servicesList.first['label'];
+        String selectedServiceId = servicesList.first['id'].toString();
 
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('افزودن مدل جدید'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: selectedService,
-                    decoration: const InputDecoration(
-                      labelText: 'خدمت',
-                      border: OutlineInputBorder(),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedServiceId,
+                      decoration: const InputDecoration(
+                        labelText: 'خدمت',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: servicesList.map((service) {
+                        return DropdownMenuItem<String>(
+                          value: service['id'].toString(),
+                          child: Text(service['label'] as String),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          selectedServiceId = value!;
+                        });
+                      },
                     ),
-                    items: servicesList.map((service) {
-                      return DropdownMenuItem<String>(
-                        value: service['label'] as String,
-                        child: Text(service['label'] as String),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedService = value!;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'نام مدل',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'نام مدل',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: priceController,
-                    decoration: const InputDecoration(
-                      labelText: 'قیمت (تومان)',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: priceController,
+                      decoration: const InputDecoration(
+                        labelText: 'قیمت (تومان)',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: durationController,
-                    decoration: const InputDecoration(
-                      labelText: 'مدت زمان (دقیقه)',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: durationController,
+                      decoration: const InputDecoration(
+                        labelText: 'مدت زمان (دقیقه)',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
                     ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'توضیحات',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'توضیحات',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
                     ),
-                    maxLines: 3,
-                  ),
-                ],
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -263,21 +290,45 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
                   child: const Text('انصراف'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (nameController.text.isNotEmpty &&
                         priceController.text.isNotEmpty &&
                         durationController.text.isNotEmpty) {
-                      setState(() {
-                        modelsList.add({
-                          'name': nameController.text,
-                          'price': int.parse(priceController.text),
-                          'duration': '${durationController.text} دقیقه',
-                          'description': descriptionController.text,
-                          'service': selectedService,
+                      try {
+                        final response = await SupabaseConfig.client
+                            .from('models')
+                            .insert({
+                              'name': nameController.text,
+                              'price': int.parse(priceController.text),
+                              'duration': int.parse(durationController.text),
+                              'description': descriptionController.text,
+                              'service_id': int.parse(selectedServiceId),
+                            })
+                            .select()
+                            .single();
+
+                        setState(() {
+                          modelsList.add(response);
                         });
-                      });
-                      _saveModels();
-                      Navigator.pop(context);
+
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                      } catch (e) {
+                        if (!mounted) return;
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('خطا'),
+                            content: Text('خطایی در افزودن مدل رخ داد: $e'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('باشه'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
                     }
                   },
                   child: const Text('افزودن'),
@@ -290,7 +341,8 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
     );
   }
 
-  void _deleteService(int index) {
+  void _deleteService(int index) async {
+    final service = servicesList[index];
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -302,12 +354,26 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
             child: const Text('انصراف'),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                servicesList.removeAt(index);
-              });
-              _saveServices();
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                await SupabaseConfig.client
+                    .from('services')
+                    .delete()
+                    .eq('id', service['id']);
+
+                setState(() {
+                  servicesList.removeAt(index);
+                });
+
+                if (!mounted) return;
+                Navigator.pop(context);
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('خطا در حذف خدمت: $e')),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -319,7 +385,8 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
     );
   }
 
-  void _deleteModel(int index) {
+  void _deleteModel(int index) async {
+    final model = modelsList[index];
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -331,12 +398,26 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
             child: const Text('انصراف'),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                modelsList.removeAt(index);
-              });
-              _saveModels();
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                await SupabaseConfig.client
+                    .from('models')
+                    .delete()
+                    .eq('id', model['id']);
+
+                setState(() {
+                  modelsList.removeAt(index);
+                });
+
+                if (!mounted) return;
+                Navigator.pop(context);
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('خطا در حذف مدل: $e')),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -348,14 +429,17 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
     );
   }
 
-  Widget _buildIconOption(IconData icon, IconData selectedIcon, Function(IconData) onSelect) {
+  Widget _buildIconOption(
+      IconData icon, IconData selectedIcon, Function(IconData) onSelect) {
     final isSelected = icon == selectedIcon;
     return InkWell(
       onTap: () => onSelect(icon),
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+          color: isSelected
+              ? Colors.blue.withOpacity(0.2)
+              : Colors.grey.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? Colors.blue : Colors.grey,
@@ -417,7 +501,8 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
-                  leading: Icon(IconData(service['icon'], fontFamily: 'MaterialIcons')),
+                  leading: Icon(
+                      IconData(service['icon'], fontFamily: 'MaterialIcons')),
                   title: Text(service['label']),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
@@ -452,18 +537,21 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
             itemCount: servicesList.length,
             itemBuilder: (context, serviceIndex) {
               final service = servicesList[serviceIndex];
-              final serviceModels = modelsList.where((model) => model['service'] == service['label']).toList();
-              
+              final serviceModels = modelsList
+                  .where((model) => model['service_id'] == service['id'])
+                  .toList();
+
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ExpansionTile(
                   title: Text(service['label']),
                   subtitle: Text('${serviceModels.length} مدل'),
-                  children: serviceModels.asMap().entries.map((entry) {
-                    final modelIndex = modelsList.indexOf(entry.value);
+                  children: serviceModels.map((model) {
+                    final modelIndex = modelsList.indexOf(model);
                     return ListTile(
-                      title: Text(entry.value['name']),
-                      subtitle: Text('${entry.value['price']} تومان - ${entry.value['duration']}'),
+                      title: Text(model['name']),
+                      subtitle: Text(
+                          '${model['price']} تومان - ${model['duration']} دقیقه'),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _deleteModel(modelIndex),
@@ -478,4 +566,4 @@ class _ManageServicesPageState extends State<ManageServicesPage> with SingleTick
       ],
     );
   }
-} 
+}
