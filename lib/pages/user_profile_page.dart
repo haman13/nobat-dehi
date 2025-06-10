@@ -25,12 +25,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
   // File? _profileImage;
   // final ImagePicker _picker = ImagePicker();
   String _phoneNumber = '';
+  late String reservationMobile;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _phoneNumber = widget.phoneNumber;
+    reservationMobile = widget.phoneNumber;
     _loadUserData();
   }
 
@@ -56,7 +58,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
   // }
 
   Future<void> _editFullName() async {
-    final TextEditingController controller = TextEditingController(text: _fullName);
+    final TextEditingController controller =
+        TextEditingController(text: _fullName);
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -86,12 +89,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
       });
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('fullname', result);
-      await UserManagement.updateUser(_phoneNumber, _phoneNumber, result, prefs.getString('password') ?? '');
+      await UserManagement.updateUser(_phoneNumber, _phoneNumber, result,
+          prefs.getString('password') ?? '');
     }
   }
 
   Future<void> _editPhoneNumber() async {
-    final TextEditingController controller = TextEditingController(text: _phoneNumber);
+    final TextEditingController controller =
+        TextEditingController(text: _phoneNumber);
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -123,7 +128,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('خطا'),
-            content: const Text('شماره موبایل باید با 09 شروع شود و 11 رقم باشد.'),
+            content:
+                const Text('شماره موبایل باید با 09 شروع شود و 11 رقم باشد.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -137,7 +143,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
       final oldPhoneNumber = _phoneNumber; // شماره قبلی را ذخیره کن
       final prefs = await SharedPreferences.getInstance();
-      await UserManagement.updateUser(oldPhoneNumber, result, _fullName, prefs.getString('password') ?? '');
+      await UserManagement.updateUser(
+          oldPhoneNumber, result, _fullName, prefs.getString('password') ?? '');
       // حالا شماره جدید را ذخیره کن
       setState(() {
         _phoneNumber = result;
@@ -148,6 +155,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    print(
+        'UserProfilePage phoneNumber: [32m[1m[4m[7m${widget.phoneNumber}[0m');
+    print('reservationMobile: [31m[1m[4m[7m$reservationMobile[0m');
     return Scaffold(
       appBar: AppBar(
         title: const Text('پروفایل'),
@@ -193,9 +203,26 @@ class _UserProfilePageState extends State<UserProfilePage> {
                             style: AppTheme.subtitleStyle,
                           ),
                           const SizedBox(height: 16),
-                          _buildInfoRow('نام و نام خانوادگی', _fullName, _editFullName),
+                          _buildInfoRow(
+                              'نام و نام خانوادگی', _fullName, _editFullName),
                           const SizedBox(height: 8),
-                          _buildInfoRow('شماره موبایل', _phoneNumber, _editPhoneNumber),
+                          _buildInfoRow(
+                              'شماره موبایل', _phoneNumber, _editPhoneNumber),
+                          const SizedBox(height: 8),
+                          // Container(
+                          //   width: double.infinity,
+                          //   margin: const EdgeInsets.symmetric(horizontal: 16),
+                          //   padding: const EdgeInsets.all(12),
+                          //   decoration: BoxDecoration(
+                          //     color: Colors.blue[50],
+                          //     borderRadius: BorderRadius.circular(8),
+                          //   ),
+                          // child: Text(
+                          //   'reservationMobile: $_phoneNumber',
+                          //   style: const TextStyle(
+                          //       fontWeight: FontWeight.bold, fontSize: 16),
+                          // ),
+                          // ),
                         ],
                       ),
                     ),
@@ -205,9 +232,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () async {
-                        final TextEditingController currentPasswordController = TextEditingController();
-                        final TextEditingController newPasswordController = TextEditingController();
-                        final TextEditingController confirmPasswordController = TextEditingController();
+                        final TextEditingController currentPasswordController =
+                            TextEditingController();
+                        final TextEditingController newPasswordController =
+                            TextEditingController();
+                        final TextEditingController confirmPasswordController =
+                            TextEditingController();
 
                         final result = await showDialog<bool>(
                           context: context,
@@ -256,15 +286,18 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
                         if (result == true) {
                           final prefs = await SharedPreferences.getInstance();
-                          final currentPassword = prefs.getString('password') ?? '';
+                          final currentPassword =
+                              prefs.getString('password') ?? '';
 
-                          if (currentPasswordController.text != currentPassword) {
+                          if (currentPasswordController.text !=
+                              currentPassword) {
                             if (!mounted) return;
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('خطا'),
-                                content: const Text('رمز عبور فعلی اشتباه است.'),
+                                content:
+                                    const Text('رمز عبور فعلی اشتباه است.'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
@@ -276,13 +309,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
                             return;
                           }
 
-                          if (newPasswordController.text != confirmPasswordController.text) {
+                          if (newPasswordController.text !=
+                              confirmPasswordController.text) {
                             if (!mounted) return;
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('خطا'),
-                                content: const Text('رمز عبور جدید و تکرار آن مطابقت ندارند.'),
+                                content: const Text(
+                                    'رمز عبور جدید و تکرار آن مطابقت ندارند.'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
@@ -295,15 +330,21 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           }
 
                           try {
-                            await UserManagement.updateUser(_phoneNumber, _phoneNumber, _fullName, newPasswordController.text);
-                            await prefs.setString('password', newPasswordController.text);
+                            await UserManagement.updateUser(
+                                _phoneNumber,
+                                _phoneNumber,
+                                _fullName,
+                                newPasswordController.text);
+                            await prefs.setString(
+                                'password', newPasswordController.text);
 
                             if (!mounted) return;
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('موفقیت'),
-                                content: const Text('رمز عبور با موفقیت تغییر کرد.'),
+                                content:
+                                    const Text('رمز عبور با موفقیت تغییر کرد.'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
@@ -318,7 +359,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('خطا'),
-                                content: const Text('خطایی در تغییر رمز عبور رخ داد. لطفاً دوباره تلاش کنید.'),
+                                content: const Text(
+                                    'خطایی در تغییر رمز عبور رخ داد. لطفاً دوباره تلاش کنید.'),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.pop(context),
@@ -343,7 +385,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text('خروج از حساب کاربری'),
-                            content: const Text('آیا از خروج از حساب کاربری خود اطمینان دارید؟'),
+                            content: const Text(
+                                'آیا از خروج از حساب کاربری خود اطمینان دارید؟'),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),
@@ -417,7 +460,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
           GestureDetector(
             onTapDown: (_) {
               final now = DateTime.now();
-              if (lastTapTime == null || now.difference(lastTapTime!) > const Duration(seconds: 1)) {
+              if (lastTapTime == null ||
+                  now.difference(lastTapTime!) > const Duration(seconds: 1)) {
                 tapCount = 1;
               } else {
                 tapCount++;

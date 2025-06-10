@@ -30,6 +30,28 @@ class _ServicesListPageState extends State<ServicesListPage> {
     return formatter.format(int.tryParse(price.toString()) ?? 0);
   }
 
+  // تابع تبدیل عدد روز هفته به نام فارسی
+  String getPersianWeekDay(int weekDay) {
+    switch (weekDay) {
+      case 1:
+        return 'شنبه';
+      case 2:
+        return 'یکشنبه';
+      case 3:
+        return 'دوشنبه';
+      case 4:
+        return 'سه‌شنبه';
+      case 5:
+        return 'چهارشنبه';
+      case 6:
+        return 'پنج‌شنبه';
+      case 7:
+        return 'جمعه';
+      default:
+        return '';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -537,7 +559,7 @@ class _ServicesListPageState extends State<ServicesListPage> {
               Text('قیمت: ${formatPrice(model['price'])} تومان'),
               const SizedBox(height: 8),
               Text(
-                  'تاریخ: ${selectedDate.year}/${selectedDate.month}/${selectedDate.day}'),
+                  'تاریخ: ${selectedDate.year}/${selectedDate.month}/${selectedDate.day} (${getPersianWeekDay(selectedDate.weekDay)})'),
               const SizedBox(height: 8),
               Text('ساعت: $time'),
             ],
@@ -884,17 +906,20 @@ class _ServicesListPageState extends State<ServicesListPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text(
-                              'لطفاً خدمت مورد نظر خود را انتخاب کنید:',
-                              style: AppTheme.titleStyle.copyWith(fontSize: 20),
+                            child: Center(
+                              child: Text(
+                                'لطفاً خدمت مورد نظر خود را انتخاب کنید:',
+                                style:
+                                    AppTheme.titleStyle.copyWith(fontSize: 20),
+                              ),
                             ),
                           ),
-                          IconButton(
-                            onPressed: () => _showFullDatabaseDebug(),
-                            icon: const Icon(Icons.bug_report,
-                                color: AppTheme.primaryColor),
-                            tooltip: 'بررسی کامل دیتابیس',
-                          ),
+                          // IconButton(
+                          //   onPressed: () => _showFullDatabaseDebug(),
+                          //   icon: const Icon(Icons.bug_report,
+                          //       color: AppTheme.primaryColor),
+                          //   tooltip: 'بررسی کامل دیتابیس',
+                          // ),
                         ],
                       ),
                       const SizedBox(height: 20),

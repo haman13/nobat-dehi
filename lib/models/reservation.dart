@@ -8,6 +8,8 @@ class Reservation {
   final String phoneNumber;
   final int price;
   final String fullName;
+  final String? serviceId;
+  final String? modelId;
 
   Reservation({
     required this.id,
@@ -19,6 +21,8 @@ class Reservation {
     required this.phoneNumber,
     required this.price,
     required this.fullName,
+    this.serviceId,
+    this.modelId,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,9 +33,11 @@ class Reservation {
       'time': time,
       'note': note,
       'status': status,
-      'phoneNumber': phoneNumber,
+      'phone_number': phoneNumber,
       'price': price,
-      'fullName': fullName,
+      'full_name': fullName,
+      'service_id': serviceId,
+      'model_id': modelId,
     };
   }
 
@@ -43,9 +49,11 @@ class Reservation {
       time: map['time'],
       note: map['note'],
       status: map['status'] ?? 'در انتظار',
-      phoneNumber: map['phoneNumber'],
+      phoneNumber: map['phone_number'],
       price: map['price'],
-      fullName: map['fullName'],
+      fullName: map['full_name'],
+      serviceId: map['service_id'],
+      modelId: map['model_id'],
     );
   }
 
@@ -57,23 +65,27 @@ class Reservation {
       'time': time,
       'status': status,
       'note': note,
-      'phoneNumber': phoneNumber,
+      'phone_number': phoneNumber,
       'price': price,
-      'fullName': fullName,
+      'full_name': fullName,
+      'service_id': serviceId,
+      'model_id': modelId,
     };
   }
 
   factory Reservation.fromJson(Map<String, dynamic> json) {
     return Reservation(
-      id: json['id'],
-      service: json['service'],
-      date: DateTime.parse(json['date']),
-      time: json['time'],
-      status: json['status'] ?? 'در انتظار',
-      note: json['note'],
-      phoneNumber: json['phoneNumber'],
-      price: json['price'],
-      fullName: json['fullName'],
+      id: json['id'].toString(),
+      service: json['service'].toString(),
+      date: DateTime.parse(json['date'].toString()),
+      time: json['time'].toString(),
+      status: json['status']?.toString() ?? 'در انتظار',
+      note: json['note']?.toString(),
+      phoneNumber: json['phone_number'].toString(),
+      price: int.tryParse(json['price'].toString()) ?? 0,
+      fullName: json['full_name'].toString(),
+      serviceId: json['service_id']?.toString(),
+      modelId: json['model_id']?.toString(),
     );
   }
 }

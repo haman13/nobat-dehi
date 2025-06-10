@@ -5,6 +5,7 @@ import 'package:flutter_application_1/pages/user_profile_page.dart';
 import 'package:flutter_application_1/pages/welcome_page.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:flutter_application_1/utils/custom_page_transition.dart';
+import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   late int _selectedIndex;
   String _phoneNumber = '';
+  String reservationMobile = '';
   late PageController _pageController;
 
   @override
@@ -37,25 +39,76 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  Future<void> _loadUserData() async {
+    try {
+      // ابتدا از SharedPreferences تلاش کن
+      final prefs = await SharedPreferences.getInstance();
+      final phoneFromPrefs = prefs.getString('phone');
+
+      if (phoneFromPrefs != null && phoneFromPrefs.isNotEmpty) {
+        setState(() {
+          _phoneNumber = phoneFromPrefs;
+          reservationMobile = phoneFromPrefs;
+        });
+        print('📱 MainScreen شماره از SharedPreferences: $phoneFromPrefs');
+        return;
+      }
+
+      // اگر در SharedPreferences نبود، از Supabase تلاش کن
+      final user = SupabaseConfig.client.auth.currentUser;
+      print('MainScreen currentUser: $user');
+      if (user == null) {
+        throw Exception('کاربر وارد نشده است');
+      }
+
+      final userData = await SupabaseConfig.client
+          .from('users')
+          .select()
+          .eq('id', user.id)
+          .single();
+
+      print('MainScreen userData: $userData');
+      setState(() {
+        _phoneNumber = userData['phone'] ?? 'نامشخص';
+        reservationMobile = userData['phone'] ?? 'نامشخص';
+      });
+      print('MainScreen _phoneNumber after setState: $_phoneNumber');
+    } catch (e) {
+      print('خطا در دریافت اطلاعات کاربر: $e');
+    }
+  }
+
   void _onPageChanged(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   void _onNavItemTapped(int index) {
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (_selectedIndex != index) {
+      _pageController.jumpToPage(index);
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
-  Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _phoneNumber = prefs.getString('phone') ?? 'نامشخص';
-    });
+  Future<void> _handleLogout() async {
+    try {
+      await SupabaseConfig.client.auth.signOut();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        CustomPageTransition(
+          page: const WelcomePage(),
+          settings: const RouteSettings(name: '/login'),
+        ),
+      );
+    } catch (e) {
+      print('خطا در خروج از حساب کاربری: $e');
+    }
   }
 
   @override
@@ -69,20 +122,7 @@ class _MainScreenState extends State<MainScreen> {
           const ReservationsPage(),
           UserProfilePage(
             phoneNumber: _phoneNumber,
-            onLogout: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('phone');
-              await prefs.remove('fullname');
-              await prefs.remove('password');
-              if (!context.mounted) return;
-              Navigator.pushReplacement(
-                context,
-                CustomPageTransition(
-                  page: const WelcomePage(),
-                  settings: const RouteSettings(name: '/login'),
-                ),
-              );
-            },
+            onLogout: _handleLogout,
           ),
         ],
       ),
@@ -141,48 +181,28 @@ class _MainScreenState extends State<MainScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color:
-              isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryLightColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: isSelected
-                        ? AppTheme.primaryColor.withOpacity(0.3)
-                        : Colors.grey.withOpacity(0.2),
-                    spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: isSelected
-                    ? AppTheme.primaryColor
-                    : AppTheme.primaryColor.withOpacity(0.7),
-                size: 24,
-              ),
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : AppTheme.primaryColor,
+              size: 20,
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? AppTheme.primaryColor
-                    : AppTheme.primaryColor.withOpacity(0.7),
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

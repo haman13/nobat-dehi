@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-
 class AppTheme {
   // رنگ‌های اصلی برنامه
   static const Color primaryColor = Colors.pinkAccent;
   static const Color primaryDarkColor = Color(0xFFE91E63); // pink[800]
   static const Color primaryLightColor = Color(0xFFFCE4EC); // pink[50]
   static const Color primaryLightColor2 = Color(0xFFF8BBD0); // pink[100]
-  static const Color primaryLightColor3 = Color.fromARGB(255, 165, 213, 241); // pink[100]
+  static const Color primaryLightColor3 =
+      Color.fromARGB(255, 165, 213, 241); // pink[100]
   static const Color todayReservationColor = Colors.blue;
   static const Color weekReservationColor = Colors.green;
   static const Color monthReservationColor = Colors.orange;
@@ -15,12 +15,13 @@ class AppTheme {
 
   // رنگ‌های متن
   static const Color textPrimaryColor = Color(0xFFE91E63); // pink[800]
+  static const Color textSecondaryColor = Colors.grey;
   static const Color textOnPrimaryColor = Colors.white;
-  
+
   // رنگ‌های پس‌زمینه
   static const Color backgroundColor = Color(0xFFFCE4EC); // pink[50]
   static const Color surfaceColor = Colors.white;
-  
+
   // رنگ‌های وضعیت
   static const Color statusPendingColor = Colors.orange;
   static const Color statusConfirmedColor = Colors.green;
@@ -50,7 +51,7 @@ class AppTheme {
     return SizedBox(
       width: size,
       height: size,
-      // 
+      //
       child: Center(
         //
         child: Image.asset(
@@ -98,7 +99,7 @@ class AppTheme {
 
   static void handleAdminTap(BuildContext context) {
     _adminTapCount++;
-    
+
     if (_adminTapCount >= _requiredTaps) {
       _adminTapCount = 0;
       _showAdminLoginDialog(context);
@@ -131,6 +132,7 @@ class AppTheme {
     });
   }
 }
+
 // تغییر نام کاربری و رمز عبور ادمین
 class AdminCredentials {
   // مقادیر ثابت برای نام کاربری و رمز عبور ادمین
@@ -151,5 +153,4 @@ class HardcodedUser {
   static const String phone = '09123456789';
   static const String password = '123456';
   static const String fullName = 'کاربر ادمین';
-  
-} 
+}

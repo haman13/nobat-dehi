@@ -1,213 +1,278 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/models/reservation.dart';
-import 'package:persian_datetime_picker/persian_datetime_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:flutter_application_1/theme.dart';
+import 'package:flutter_application_1/utils/supabase_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 
 class ReservationsPage extends StatefulWidget {
-  const ReservationsPage({super.key});
+  const ReservationsPage({Key? key}) : super(key: key);
 
   @override
   State<ReservationsPage> createState() => _ReservationsPageState();
 }
 
 class _ReservationsPageState extends State<ReservationsPage> {
-  List<Reservation> myReservations = [];
+  String _phoneNumber = '';
+  bool _isLoading = true;
+  List<dynamic> todayReservations = [];
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadReservations();
+    _loadUserData();
   }
 
-  Future<void> _loadReservations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final reservationsJson = prefs.getStringList('reservations') ?? [];
-    final allReservations = reservationsJson
-        .map((json) => Reservation.fromJson(jsonDecode(json)))
-        .toList();
+  Future<void> _loadUserData() async {
+    try {
+      // ابتدا از SharedPreferences تلاش کن
+      final prefs = await SharedPreferences.getInstance();
+      final phoneFromPrefs = prefs.getString('phone');
 
-    final userPhone = prefs.getString('phone') ?? '';
-    setState(() {
-      myReservations = allReservations
-          .where((r) => r.phoneNumber == userPhone)
-          .toList()
-        ..sort((a, b) => b.date.compareTo(a.date));
-    });
+      if (phoneFromPrefs != null && phoneFromPrefs.isNotEmpty) {
+        setState(() {
+          _phoneNumber = phoneFromPrefs;
+        });
+        print('📱 شماره از SharedPreferences: $phoneFromPrefs');
+        await _fetchTodayReservations();
+        return;
+      }
+
+      // اگر در SharedPreferences نبود، از Supabase بگیر
+      final user = SupabaseConfig.client.auth.currentUser;
+      if (user != null) {
+        final userData = await SupabaseConfig.client
+            .from('users')
+            .select()
+            .eq('id', user.id)
+            .single();
+
+        setState(() {
+          _phoneNumber = userData['phone'] ?? 'نامشخص';
+        });
+        print('📱 شماره از Supabase: ${userData['phone']}');
+        await _fetchTodayReservations();
+      } else {
+        setState(() {
+          _phoneNumber = 'کاربر لاگین نشده';
+          _isLoading = false;
+        });
+        print('📱 کاربر لاگین نشده');
+      }
+    } catch (e) {
+      setState(() {
+        _phoneNumber = 'خطا در دریافت شماره';
+        _isLoading = false;
+      });
+      print('📱 خطا در دریافت شماره: $e');
+    }
   }
 
-  String formatToJalali(DateTime date) {
-    final jDate = Jalali.fromDateTime(date);
-    return '${jDate.year}/${jDate.month}/${jDate.day}';
+  Future<void> _fetchTodayReservations() async {
+    try {
+      // دریافت شماره تلفن کاربر برای فیلتر کردن رزروها
+      String userPhone = _phoneNumber;
+      if (userPhone == 'در حال بارگذاری...' ||
+          userPhone == 'کاربر لاگین نشده' ||
+          userPhone == 'خطا در دریافت شماره') {
+        // تلاش برای دریافت مجدد شماره از SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        userPhone = prefs.getString('phone') ?? '';
+      }
+
+      if (userPhone.isEmpty) {
+        setState(() {
+          _error = 'شماره تلفن کاربر مشخص نیست';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final data = await SupabaseConfig.client
+          .from('reservations')
+          .select('*, model:models(*)')
+          .eq('customer_phone', userPhone)
+          .order('date', ascending: false)
+          .order('time', ascending: true);
+
+      setState(() {
+        todayReservations = data;
+        _isLoading = false;
+      });
+      print('📋 کل رزروها برای شماره $userPhone: ${data.length} رزرو');
+    } catch (e) {
+      setState(() {
+        _error = 'خطا در دریافت رزروها: ${e.toString()}';
+        _isLoading = false;
+      });
+      print('📋 خطا در دریافت رزروها: $e');
+    }
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'confirmed':
+      case 'تایید شده':
+        return Colors.green;
+      case 'cancelled':
+      case 'لغو شده':
+        return Colors.red;
+      case 'pending':
+      case 'در انتظار':
+      default:
+        return Colors.orange;
+    }
+  }
+
+  String _getStatusText(String? status) {
+    switch (status) {
+      case 'confirmed':
+        return 'تایید شده';
+      case 'cancelled':
+        return 'لغو شده';
+      case 'pending':
+        return 'در انتظار';
+      default:
+        return status ?? 'نامشخص';
+    }
+  }
+
+  String _convertToPersianDate(String? gregorianDate) {
+    if (gregorianDate == null || gregorianDate.isEmpty) return 'نامشخص';
+
+    try {
+      final DateTime date = DateTime.parse(gregorianDate);
+      final Jalali jalaliDate = Jalali.fromDateTime(date);
+
+      return '${jalaliDate.year}/${jalaliDate.month.toString().padLeft(2, '0')}/${jalaliDate.day.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return gregorianDate; // در صورت خطا همان تاریخ اصلی را نمایش بده
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    print('🔴 ReservationsPage _phoneNumber: [$_phoneNumber]');
     return Scaffold(
       appBar: AppBar(
         title: const Text('رزروهای من'),
-        centerTitle: true,
         backgroundColor: AppTheme.primaryColor,
+        centerTitle: true,
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadReservations,
-        child: myReservations.isEmpty
-            ? const Center(
-                child: Text('شما هنوز رزروی ندارید'),
-              )
-            : ListView.builder(
-                itemCount: myReservations.length,
-                itemBuilder: (context, index) {
-                  return _buildReservationCard(myReservations[index]);
-                },
-              ),
-      ),
-    );
-  }
-
-  Widget _buildReservationCard(Reservation reservation) {
-    Color statusColor;
-    switch (reservation.status) {
-      case 'در انتظار':
-        statusColor = AppTheme.statusPendingColor;
-        break;
-      case 'تأیید شده':
-        statusColor = AppTheme.statusConfirmedColor;
-        break;
-      case 'لغو شده':
-        statusColor = AppTheme.statusCancelledColor;
-        break;
-      default:
-        statusColor = AppTheme.statusDefaultColor;
-    }
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            right: BorderSide(
-              color: statusColor,
-              width: 4,
-            ),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 children: [
-                  Text(
-                    reservation.service,
-                    style: AppTheme.subtitleStyle,
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      reservation.status,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
+                  _buildInfoRow('شماره موبایل', _phoneNumber),
+                  const SizedBox(height: 16),
+                  if (_error != null)
+                    Center(
+                      child: Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
+                    )
+                  else if (todayReservations.isEmpty)
+                    const Center(
+                      child: Text(
+                        'هیچ رزروی ثبت نشده است',
+                        style: TextStyle(fontSize: 16),
                       ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: todayReservations.length,
+                      itemBuilder: (context, index) {
+                        final reservation = todayReservations[index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          child: Stack(
+                            children: [
+                              ListTile(
+                                title: Text(reservation['service'] ?? ''),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                        'مدل: ${reservation['model']?['name'] ?? ''}'),
+                                    Text(
+                                        'تاریخ: ${_convertToPersianDate(reservation['date'])}'),
+                                    Text('ساعت: ${reservation['time'] ?? ''}'),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        _getStatusColor(reservation['status']),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _getStatusText(reservation['status']),
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text('تاریخ: ${formatToJalali(reservation.date)}'),
-              Text('ساعت: ${reservation.time}'),
-              Text('قیمت: ${reservation.price} تومان'),
-              if (reservation.status != 'لغو شده' && reservation.status != 'لغو شده از سمت ادمین')
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: ElevatedButton(
-                    onPressed: () => _cancelReservation(reservation),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('لغو رزرو'),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
-  Future<void> _cancelReservation(Reservation reservation) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('لغو رزرو'),
-        content: const Text('آیا از لغو این رزرو اطمینان دارید؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('خیر'),
+  Widget _buildInfoRow(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('بله'),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
-
-    if (confirmed == true) {
-      final prefs = await SharedPreferences.getInstance();
-      final reservationsJson = prefs.getStringList('reservations') ?? [];
-      
-      final updatedReservations = reservationsJson.map((json) {
-        final res = Reservation.fromJson(jsonDecode(json));
-        if (res.id == reservation.id) {
-          return jsonEncode(Reservation(
-            id: res.id,
-            service: res.service,
-            date: res.date,
-            time: res.time,
-            price: res.price,
-            status: 'لغو شده',
-            phoneNumber: res.phoneNumber,
-            fullName: res.fullName,
-          ).toJson());
-        }
-        return json;
-      }).toList();
-
-      await prefs.setStringList('reservations', updatedReservations);
-
-      // اگر رزرو قبلاً تأیید شده بود، نوتیفیکیشن برای ادمین ایجاد می‌کنیم
-      if (reservation.status == 'تأیید شده') {
-        final notificationsJson = prefs.getStringList('admin_notifications') ?? [];
-        final notification = {
-          'type': 'cancellation',
-          'reservation_id': reservation.id,
-          'service': reservation.service,
-          'date': reservation.date.toIso8601String(),
-          'time': reservation.time,
-          'user_name': reservation.fullName,
-          'user_phone': reservation.phoneNumber,
-          'timestamp': DateTime.now().toIso8601String(),
-          'cancelled_by': 'user'
-        };
-        notificationsJson.add(jsonEncode(notification));
-        await prefs.setStringList('admin_notifications', notificationsJson);
-      }
-
-      await _loadReservations();
-    }
   }
-} 
+}
