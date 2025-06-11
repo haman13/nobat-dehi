@@ -10,7 +10,7 @@ import 'pages/reservation_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('fa', null);
+  await initializeDateFormatting('fa_IR', null);
   await SupabaseConfig.initialize();
   runApp(const SalonApp());
 }

@@ -16,12 +16,22 @@ class _ReservationsPageState extends State<ReservationsPage> {
   String _phoneNumber = '';
   bool _isLoading = true;
   List<dynamic> todayReservations = [];
+  List<dynamic> filteredReservations = [];
   String? _error;
+
+  // متغیرهای فیلتر
+  List<Map<String, dynamic>> services = [];
+  String selectedService = 'همه خدمات';
+  String selectedStatus = 'همه';
+  String selectedDateRange = 'همه';
+  String? selectedMonth; // فرمت: "1403/08"
+  String selectedMonthDisplay = ''; // برای نمایش: "آبان 1403"
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadServices();
   }
 
   Future<void> _loadUserData() async {
@@ -69,6 +79,20 @@ class _ReservationsPageState extends State<ReservationsPage> {
     }
   }
 
+  Future<void> _loadServices() async {
+    try {
+      final response = await SupabaseConfig.client.from('services').select();
+      setState(() {
+        services = [
+          {'id': 'all', 'label': 'همه خدمات'},
+          ...List<Map<String, dynamic>>.from(response)
+        ];
+      });
+    } catch (e) {
+      print('خطا در بارگذاری خدمات: $e');
+    }
+  }
+
   Future<void> _fetchTodayReservations() async {
     try {
       // دریافت شماره تلفن کاربر برای فیلتر کردن رزروها
@@ -98,8 +122,10 @@ class _ReservationsPageState extends State<ReservationsPage> {
 
       setState(() {
         todayReservations = data;
+        filteredReservations = data; // تنظیم اولیه
         _isLoading = false;
       });
+      _applyFilters();
       print('📋 کل رزروها برای شماره $userPhone: ${data.length} رزرو');
     } catch (e) {
       setState(() {
@@ -107,6 +133,338 @@ class _ReservationsPageState extends State<ReservationsPage> {
         _isLoading = false;
       });
       print('📋 خطا در دریافت رزروها: $e');
+    }
+  }
+
+  // نمایش دیالوگ انتخاب ماه
+  Future<void> _selectMonth() async {
+    final currentJalali = Jalali.now();
+    int selectedYear = currentJalali.year;
+    int selectedMonthNum = currentJalali.month;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('انتخاب ماه'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // انتخاب سال
+              Row(
+                children: [
+                  const Text('سال: '),
+                  Expanded(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: selectedYear,
+                      items: List.generate(11, (index) => 1400 + index)
+                          .map((year) => DropdownMenuItem(
+                                value: year,
+                                child: Text(year.toString()),
+                              ))
+                          .toList(),
+                      onChanged: (year) {
+                        setDialogState(() {
+                          selectedYear = year ?? currentJalali.year;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // انتخاب ماه
+              Row(
+                children: [
+                  const Text('ماه: '),
+                  Expanded(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: selectedMonthNum,
+                      items: List.generate(12, (index) => index + 1)
+                          .map((month) => DropdownMenuItem(
+                                value: month,
+                                child: Text(_getMonthName(month)),
+                              ))
+                          .toList(),
+                      onChanged: (month) {
+                        setDialogState(() {
+                          selectedMonthNum = month ?? currentJalali.month;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('انصراف'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  selectedMonth =
+                      '$selectedYear/${selectedMonthNum.toString().padLeft(2, '0')}';
+                  selectedMonthDisplay =
+                      '${_getMonthName(selectedMonthNum)} $selectedYear';
+                  selectedDateRange = 'ماه انتخابی';
+                });
+                _applyFilters();
+                Navigator.pop(context);
+              },
+              child: const Text('تأیید'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // تبدیل شماره ماه به نام فارسی
+  String _getMonthName(int month) {
+    const months = [
+      '',
+      'فروردین',
+      'اردیبهشت',
+      'خرداد',
+      'تیر',
+      'مرداد',
+      'شهریور',
+      'مهر',
+      'آبان',
+      'آذر',
+      'دی',
+      'بهمن',
+      'اسفند'
+    ];
+    return months[month];
+  }
+
+  // اعمال فیلترها
+  void _applyFilters() {
+    List<dynamic> filtered = List.from(todayReservations);
+
+    // فیلتر بر اساس خدمت
+    if (selectedService != 'همه خدمات') {
+      filtered = filtered.where((reservation) {
+        return reservation['service'] == selectedService;
+      }).toList();
+    }
+
+    // فیلتر بر اساس وضعیت
+    if (selectedStatus != 'همه') {
+      filtered = filtered.where((reservation) {
+        final status = reservation['status']?.toString().toLowerCase();
+        switch (selectedStatus) {
+          case 'در انتظار':
+            return status == 'pending' || status == 'در انتظار';
+          case 'تایید شده':
+            return status == 'confirmed' || status == 'تایید شده';
+          case 'لغو شده':
+            return status == 'cancelled' || status == 'لغو شده';
+          default:
+            return true;
+        }
+      }).toList();
+    }
+
+    // فیلتر بر اساس تاریخ
+    if (selectedDateRange != 'همه') {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      filtered = filtered.where((reservation) {
+        try {
+          final reservationDate = DateTime.parse(reservation['date']);
+          final reservationDateOnly = DateTime(
+            reservationDate.year,
+            reservationDate.month,
+            reservationDate.day,
+          );
+
+          switch (selectedDateRange) {
+            case 'امروز':
+              return reservationDateOnly.isAtSameMomentAs(today);
+            case 'این هفته':
+              final weekStart =
+                  today.subtract(Duration(days: today.weekday - 1));
+              final weekEnd = weekStart.add(const Duration(days: 6));
+              return reservationDateOnly
+                      .isAfter(weekStart.subtract(const Duration(days: 1))) &&
+                  reservationDateOnly
+                      .isBefore(weekEnd.add(const Duration(days: 1)));
+            case 'این ماه':
+              return reservationDateOnly.year == today.year &&
+                  reservationDateOnly.month == today.month;
+            case 'ماه انتخابی':
+              if (selectedMonth == null) return true;
+              try {
+                final parts = selectedMonth!.split('/');
+                final selectedYear = int.parse(parts[0]);
+                final selectedMonthNum = int.parse(parts[1]);
+                final jalali = Jalali.fromDateTime(reservationDate);
+                return jalali.year == selectedYear &&
+                    jalali.month == selectedMonthNum;
+              } catch (e) {
+                return false;
+              }
+            default:
+              return true;
+          }
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+    }
+
+    setState(() {
+      filteredReservations = filtered;
+    });
+  }
+
+  // بررسی اینکه آیا رزرو قابل حذف است یا نه
+  bool _canDeleteReservation(Map<String, dynamic> reservation) {
+    try {
+      // 1. بررسی تاریخ - آیا رزرو برای آینده است؟
+      final reservationDate = reservation['date'];
+      if (reservationDate == null || reservationDate.isEmpty) {
+        return false;
+      }
+
+      final DateTime reservationDateTime = DateTime.parse(reservationDate);
+      final DateTime today = DateTime.now();
+
+      // مقایسه فقط تاریخ (بدون ساعت)
+      final DateTime reservationDateOnly = DateTime(
+        reservationDateTime.year,
+        reservationDateTime.month,
+        reservationDateTime.day,
+      );
+      final DateTime todayDateOnly = DateTime(
+        today.year,
+        today.month,
+        today.day,
+      );
+
+      // اگر تاریخ رزرو گذشته باشد، قابل حذف نیست
+      if (reservationDateOnly.isBefore(todayDateOnly)) {
+        return false;
+      }
+
+      // 2. بررسی وضعیت - آیا در حالت مناسب است؟
+      final status = reservation['status']?.toString().toLowerCase();
+      if (status == 'pending' ||
+          status == 'confirmed' ||
+          status == 'در انتظار' ||
+          status == 'تایید شده') {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ خطا در بررسی قابلیت حذف رزرو: $e');
+      return false;
+    }
+  }
+
+  // نمایش دیالوگ تأیید حذف
+  Future<void> _showDeleteConfirmation(Map<String, dynamic> reservation) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('تأیید حذف رزرو'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('آیا مطمئن هستید که می‌خواهید این رزرو را حذف کنید؟'),
+              const SizedBox(height: 8),
+              Text('خدمت: ${reservation['service'] ?? ''}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('تاریخ: ${_convertToPersianDate(reservation['date'])}'),
+              Text('ساعت: ${reservation['time'] ?? ''}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('انصراف'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('حذف'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _deleteReservation(reservation);
+    }
+  }
+
+  // حذف رزرو از دیتابیس
+  Future<void> _deleteReservation(Map<String, dynamic> reservation) async {
+    try {
+      // نمایش لودینگ
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('در حال حذف رزرو...'),
+            ],
+          ),
+        ),
+      );
+
+      // حذف از دیتابیس
+      await SupabaseConfig.client
+          .from('reservations')
+          .delete()
+          .eq('id', reservation['id']);
+
+      // بستن لودینگ
+      if (mounted) Navigator.pop(context);
+
+      // نمایش پیام موفقیت
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('رزرو با موفقیت حذف شد'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // بارگذاری مجدد لیست رزروها
+      await _fetchTodayReservations();
+    } catch (e) {
+      // بستن لودینگ در صورت خطا
+      if (mounted) Navigator.pop(context);
+
+      print('❌ خطا در حذف رزرو: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا در حذف رزرو: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -166,8 +524,10 @@ class _ReservationsPageState extends State<ReservationsPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _buildInfoRow('شماره موبایل', _phoneNumber),
+                  // فیلترها
+                  _buildFilters(),
                   const SizedBox(height: 16),
+
                   if (_error != null)
                     Center(
                       child: Text(_error!,
@@ -180,49 +540,96 @@ class _ReservationsPageState extends State<ReservationsPage> {
                         style: TextStyle(fontSize: 16),
                       ),
                     )
+                  else if (filteredReservations.isEmpty)
+                    const Center(
+                      child: Text(
+                        'هیچ رزروی با فیلتر انتخابی یافت نشد',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    )
                   else
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: todayReservations.length,
+                      itemCount: filteredReservations.length,
                       itemBuilder: (context, index) {
-                        final reservation = todayReservations[index];
+                        final reservation = filteredReservations[index];
+                        final canDelete = _canDeleteReservation(reservation);
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
-                          child: Stack(
-                            children: [
-                              ListTile(
-                                title: Text(reservation['service'] ?? ''),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ردیف اول: نام خدمت و وضعیت
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                        'مدل: ${reservation['model']?['name'] ?? ''}'),
-                                    Text(
-                                        'تاریخ: ${_convertToPersianDate(reservation['date'])}'),
-                                    Text('ساعت: ${reservation['time'] ?? ''}'),
+                                    Expanded(
+                                      child: Text(
+                                        reservation['service'] ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: _getStatusColor(
+                                            reservation['status']),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        _getStatusText(reservation['status']),
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 12),
+                                      ),
+                                    ),
                                   ],
                                 ),
-                              ),
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        _getStatusColor(reservation['status']),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    _getStatusText(reservation['status']),
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 12),
+                                const SizedBox(height: 8),
+
+                                // اطلاعات رزرو
+                                Text(
+                                    'مدل: ${reservation['model']?['name'] ?? ''}'),
+                                Text(
+                                    'تاریخ: ${_convertToPersianDate(reservation['date'])}'),
+                                Text('ساعت: ${reservation['time'] ?? ''}'),
+
+                                const SizedBox(height: 12),
+
+                                // دکمه حذف رزرو
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: canDelete
+                                        ? () =>
+                                            _showDeleteConfirmation(reservation)
+                                        : null,
+                                    icon: Icon(
+                                      canDelete ? Icons.delete : Icons.block,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      canDelete ? 'حذف رزرو' : 'قابل حذف نیست',
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          canDelete ? Colors.red : Colors.grey,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -230,6 +637,163 @@ class _ReservationsPageState extends State<ReservationsPage> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'فیلتر رزروها:',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ردیف اول: فیلتر خدمت
+          Row(
+            children: [
+              const Text('خدمت: ', style: TextStyle(fontSize: 14)),
+              Expanded(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: selectedService,
+                  items: services.map((service) {
+                    return DropdownMenuItem<String>(
+                      value: service['label'],
+                      child: Text(service['label'] ?? ''),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      selectedService = newValue ?? 'همه خدمات';
+                    });
+                    _applyFilters();
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // ردیف دوم: فیلتر وضعیت و تاریخ
+          Row(
+            children: [
+              // فیلتر وضعیت
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('وضعیت: ', style: TextStyle(fontSize: 14)),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      value: selectedStatus,
+                      items: const [
+                        DropdownMenuItem(value: 'همه', child: Text('همه')),
+                        DropdownMenuItem(
+                            value: 'در انتظار', child: Text('در انتظار')),
+                        DropdownMenuItem(
+                            value: 'تایید شده', child: Text('تایید شده')),
+                        DropdownMenuItem(
+                            value: 'لغو شده', child: Text('لغو شده')),
+                      ],
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedStatus = newValue ?? 'همه';
+                        });
+                        _applyFilters();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // فیلتر تاریخ
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('تاریخ: ', style: TextStyle(fontSize: 14)),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      value: selectedDateRange,
+                      items: const [
+                        DropdownMenuItem(value: 'همه', child: Text('همه')),
+                        DropdownMenuItem(value: 'امروز', child: Text('امروز')),
+                        DropdownMenuItem(
+                            value: 'این هفته', child: Text('این هفته')),
+                        DropdownMenuItem(
+                            value: 'این ماه', child: Text('این ماه')),
+                        DropdownMenuItem(
+                            value: 'ماه انتخابی', child: Text('انتخاب ماه')),
+                      ],
+                      onChanged: (String? newValue) {
+                        if (newValue == 'ماه انتخابی') {
+                          _selectMonth();
+                        } else {
+                          setState(() {
+                            selectedDateRange = newValue ?? 'همه';
+                            if (newValue != 'ماه انتخابی') {
+                              selectedMonth = null;
+                              selectedMonthDisplay = '';
+                            }
+                          });
+                          _applyFilters();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // نمایش ماه انتخابی
+          if (selectedDateRange == 'ماه انتخابی' &&
+              selectedMonthDisplay.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_month,
+                      size: 16, color: Colors.blue),
+                  const SizedBox(width: 4),
+                  Text(
+                    'ماه انتخابی: $selectedMonthDisplay',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: _selectMonth,
+                    child: const Icon(Icons.edit, size: 16, color: Colors.blue),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
