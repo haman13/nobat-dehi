@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/pages/main_screen.dart';
-import 'package:flutter_application_1/pages/user_management.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:flutter_application_1/widgets/animated_button.dart';
 import 'sign_up_page.dart';
@@ -10,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_1/utils/custom_page_route.dart';
 import 'package:flutter_application_1/utils/supabase_user_service.dart';
+import 'package:flutter_application_1/pages/blocked_user_page.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({Key? key}) : super(key: key);
@@ -54,28 +54,7 @@ class _WelcomePageState extends State<WelcomePage> {
           return;
         }
 
-        // ورود سریع با کاربر هاردکد
-        if (enteredPhone == HardcodedUser.phone && enteredPassword == HardcodedUser.password) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('fullname', HardcodedUser.fullName);
-          await prefs.setString('phone', HardcodedUser.phone);
-          await prefs.setString('password', HardcodedUser.password);
-
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            CustomPageRoute(
-              page: const MainScreen(
-                isLoggedIn: true,
-                initialIndex: 0,
-              ),
-              settings: const RouteSettings(name: '/main'),
-            ),
-          );
-          return;
-        }
-
-        // ورود کاربران معمولی از دیتابیس Supabase
+        // ورود کاربران از دیتابیس Supabase
         final user = await SupabaseUserService.getUserByPhone(enteredPhone);
         if (user != null && user['password'] == enteredPassword) {
           final prefs = await SharedPreferences.getInstance();
@@ -84,16 +63,35 @@ class _WelcomePageState extends State<WelcomePage> {
           await prefs.setString('password', user['password']);
 
           if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            CustomPageRoute(
-              page: const MainScreen(
-                isLoggedIn: true,
-                initialIndex: 0,
+
+          // بررسی مسدود بودن کاربر
+          if (user['is_blocked'] == true) {
+            // هدایت به صفحه کاربران مسدود
+            Navigator.pushReplacement(
+              context,
+              CustomPageRoute(
+                page: BlockedUserPage(
+                  fullName: user['full_name'],
+                  phone: user['phone'],
+                  blockedReason: user['blocked_reason'],
+                  blockedAt: user['blocked_at'],
+                ),
+                settings: const RouteSettings(name: '/blocked'),
               ),
-              settings: const RouteSettings(name: '/main'),
-            ),
-          );
+            );
+          } else {
+            // ورود عادی به صفحه اصلی
+            Navigator.pushReplacement(
+              context,
+              CustomPageRoute(
+                page: const MainScreen(
+                  isLoggedIn: true,
+                  initialIndex: 0,
+                ),
+                settings: const RouteSettings(name: '/main'),
+              ),
+            );
+          }
         } else {
           if (!mounted) return;
           showDialog(
@@ -158,7 +156,6 @@ class _WelcomePageState extends State<WelcomePage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-
               SizedBox(
                 width: boxWidth,
                 child: TextField(
@@ -186,6 +183,7 @@ class _WelcomePageState extends State<WelcomePage> {
                     labelText: 'رمز عبور',
                     prefixIcon: const Icon(Icons.lock),
                   ),
+                  onSubmitted: (_) => _login(),
                 ),
               ),
               const SizedBox(height: 24),
@@ -214,8 +212,6 @@ class _WelcomePageState extends State<WelcomePage> {
                 child: const Text('ثبت نام'),
               ),
               const SizedBox(height: 12),
-              
-              
             ],
           ),
         ),

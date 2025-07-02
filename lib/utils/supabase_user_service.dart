@@ -38,7 +38,8 @@ class SupabaseUserService {
     try {
       final response = await supabase
           .from('users')
-          .select()
+          .select(
+              'full_name, phone, password, is_blocked, blocked_at, blocked_reason')
           .eq('phone', phone)
           .single();
       return response;
@@ -50,14 +51,25 @@ class SupabaseUserService {
     }
   }
 
+  static Future<bool> isUserBlocked(String phone) async {
+    try {
+      final user = await getUserByPhone(phone);
+      if (user == null) return false;
+
+      return user['is_blocked'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   static Future<bool> login(String phone, String password) async {
     try {
       final user = await getUserByPhone(phone);
       if (user == null) return false;
-      
+
       return user['password'] == password;
     } catch (e) {
       return false;
     }
   }
-} 
+}

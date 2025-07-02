@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
+import 'package:flutter_application_1/theme.dart';
 
 class ManageServicesPage extends StatefulWidget {
   const ManageServicesPage({super.key});
@@ -39,6 +40,15 @@ class _ManageServicesPageState extends State<ManageServicesPage>
       setState(() {
         servicesList = [];
       });
+      // نمایش خطا به کاربر
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا در بارگذاری خدمات: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -63,7 +73,6 @@ class _ManageServicesPageState extends State<ManageServicesPage>
             servicesList
                 .map((service) => {
                       'label': service['label'],
-                      'icon': service['icon'],
                     })
                 .toList(),
           );
@@ -96,106 +105,61 @@ class _ManageServicesPageState extends State<ManageServicesPage>
       context: context,
       builder: (context) {
         final nameController = TextEditingController();
-        IconData selectedIcon = Icons.cleaning_services;
 
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('افزودن خدمت جدید'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'نام خدمت',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('انتخاب آیکون:'),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      _buildIconOption(Icons.cleaning_services, selectedIcon,
-                          (icon) {
-                        setDialogState(() {
-                          selectedIcon = icon;
-                        });
-                      }),
-                      _buildIconOption(Icons.face, selectedIcon, (icon) {
-                        setDialogState(() {
-                          selectedIcon = icon;
-                        });
-                      }),
-                      _buildIconOption(Icons.spa, selectedIcon, (icon) {
-                        setDialogState(() {
-                          selectedIcon = icon;
-                        });
-                      }),
-                      _buildIconOption(Icons.brush, selectedIcon, (icon) {
-                        setDialogState(() {
-                          selectedIcon = icon;
-                        });
-                      }),
-                      _buildIconOption(Icons.cut, selectedIcon, (icon) {
-                        setDialogState(() {
-                          selectedIcon = icon;
-                        });
-                      }),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('انصراف'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (nameController.text.isNotEmpty) {
-                      try {
-                        // اضافه کردن به Supabase
-                        final response = await SupabaseConfig.client
-                            .from('services')
-                            .insert({
-                              'label': nameController.text,
-                              'icon': selectedIcon.codePoint,
-                            })
-                            .select()
-                            .single();
+        return AlertDialog(
+          title: const Text('افزودن خدمت جدید'),
+          content: TextField(
+            controller: nameController,
+            decoration: const InputDecoration(
+              labelText: 'نام خدمت',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('انصراف'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isNotEmpty) {
+                  try {
+                    // اضافه کردن به Supabase (بدون آیکون)
+                    final response = await SupabaseConfig.client
+                        .from('services')
+                        .insert({
+                          'label': nameController.text,
+                        })
+                        .select()
+                        .single();
 
-                        setState(() {
-                          servicesList.add(response);
-                        });
+                    setState(() {
+                      servicesList.add(response);
+                    });
 
-                        if (!mounted) return;
-                        Navigator.pop(context);
-                      } catch (e) {
-                        if (!mounted) return;
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('خطا'),
-                            content: Text('خطایی در افزودن خدمت رخ داد: $e'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('باشه'),
-                              ),
-                            ],
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                  } catch (e) {
+                    if (!mounted) return;
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('خطا'),
+                        content: Text('خطایی در افزودن خدمت رخ داد: $e'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('باشه'),
                           ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('افزودن'),
-                ),
-              ],
-            );
-          },
+                        ],
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('افزودن'),
+            ),
+          ],
         );
       },
     );
@@ -429,30 +393,6 @@ class _ManageServicesPageState extends State<ManageServicesPage>
     );
   }
 
-  Widget _buildIconOption(
-      IconData icon, IconData selectedIcon, Function(IconData) onSelect) {
-    final isSelected = icon == selectedIcon;
-    return InkWell(
-      onTap: () => onSelect(icon),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.blue.withOpacity(0.2)
-              : Colors.grey.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey,
-          ),
-        ),
-        child: Icon(
-          icon,
-          color: isSelected ? Colors.blue : Colors.grey,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -501,8 +441,6 @@ class _ManageServicesPageState extends State<ManageServicesPage>
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
-                  leading: Icon(
-                      IconData(service['icon'], fontFamily: 'MaterialIcons')),
                   title: Text(service['label']),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),

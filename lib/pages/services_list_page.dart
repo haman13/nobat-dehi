@@ -60,7 +60,20 @@ class _ServicesListPageState extends State<ServicesListPage> {
 
   Future<void> _loadServices() async {
     try {
-      final response = await SupabaseConfig.client.from('services').select();
+      // گام اول: دریافت لیست یکتای service_idهایی که مدل دارند
+      final modelServiceIdsResponse =
+          await SupabaseConfig.client.from('models').select('service_id');
+      final ids =
+          modelServiceIdsResponse.map((m) => m['service_id']).toSet().toList();
+      print('service ids with model:');
+      print(ids);
+
+      // گام دوم: دریافت خدماتی که id آن‌ها در ids است
+      final response = await SupabaseConfig.client
+          .from('services')
+          .select()
+          .inFilter('id', ids)
+          .order('created_at', ascending: false);
       setState(() {
         servicesList = List<Map<String, dynamic>>.from(response);
         columns = servicesList.length <= 5 ? 2 : 3;
@@ -927,7 +940,7 @@ class _ServicesListPageState extends State<ServicesListPage> {
                         child: servicesList.isEmpty
                             ? const Center(
                                 child: Text(
-                                  'هیچ خدمتی ثبت نشده است',
+                                  'هنوز خدماتی از این مجموعه ارائه نشده است',
                                   style: AppTheme.bodyStyle,
                                 ),
                               )

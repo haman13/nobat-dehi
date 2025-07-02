@@ -4,6 +4,7 @@ import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
+import 'dart:convert';
 
 class ReservationsPage extends StatefulWidget {
   const ReservationsPage({Key? key}) : super(key: key);
@@ -31,7 +32,7 @@ class _ReservationsPageState extends State<ReservationsPage> {
   void initState() {
     super.initState();
     _loadUserData();
-    _loadServices();
+    // _loadServices(); // حذف شد - خدمات بر اساس رزروها لود می‌شوند
   }
 
   Future<void> _loadUserData() async {
@@ -80,16 +81,44 @@ class _ReservationsPageState extends State<ReservationsPage> {
   }
 
   Future<void> _loadServices() async {
+    // این متد دیگر از دیتابیس استفاده نمی‌کند
+    // خدمات بر اساس رزروهای موجود بارگذاری می‌شوند
+  }
+
+  // بارگذاری خدمات بر اساس رزروهای موجود
+  void _loadServicesFromReservations() {
     try {
-      final response = await SupabaseConfig.client.from('services').select();
+      // استخراج خدمات یونیک از رزروها
+      Set<String> uniqueServices = {};
+      for (var reservation in todayReservations) {
+        if (reservation['service'] != null &&
+            reservation['service'].toString().isNotEmpty) {
+          uniqueServices.add(reservation['service'].toString());
+        }
+      }
+
+      // تبدیل به فرمت مورد نیاز
+      List<Map<String, dynamic>> servicesList = [
+        {'id': 'all', 'label': 'همه خدمات'},
+      ];
+
+      for (String serviceName in uniqueServices) {
+        servicesList.add({
+          'id': serviceName,
+          'label': serviceName,
+        });
+      }
+
       setState(() {
-        services = [
-          {'id': 'all', 'label': 'همه خدمات'},
-          ...List<Map<String, dynamic>>.from(response)
-        ];
+        services = servicesList;
+        // اگر خدمت انتخابی دیگر در لیست نیست، به "همه خدمات" برگردان
+        if (selectedService != 'همه خدمات' &&
+            !uniqueServices.contains(selectedService)) {
+          selectedService = 'همه خدمات';
+        }
       });
     } catch (e) {
-      print('خطا در بارگذاری خدمات: $e');
+      print('خطا در بارگذاری خدمات از رزروها: $e');
     }
   }
 
@@ -125,6 +154,10 @@ class _ReservationsPageState extends State<ReservationsPage> {
         filteredReservations = data; // تنظیم اولیه
         _isLoading = false;
       });
+
+      // بارگذاری خدمات بر اساس رزروهای لود شده
+      _loadServicesFromReservations();
+
       _applyFilters();
       print('📋 کل رزروها برای شماره $userPhone: ${data.length} رزرو');
     } catch (e) {
@@ -265,7 +298,10 @@ class _ReservationsPageState extends State<ReservationsPage> {
           case 'تایید شده':
             return status == 'confirmed' || status == 'تایید شده';
           case 'لغو شده':
-            return status == 'cancelled' || status == 'لغو شده';
+            return status == 'cancelled' ||
+                status == 'لغو شده' ||
+                status == 'user_cancelled' ||
+                status == 'admin_cancelled';
           default:
             return true;
         }
@@ -364,6 +400,14 @@ class _ReservationsPageState extends State<ReservationsPage> {
         return true;
       }
 
+      // رزروهای لغو شده قابل حذف نیستند
+      if (status == 'cancelled' ||
+          status == 'user_cancelled' ||
+          status == 'admin_cancelled' ||
+          status == 'لغو شده') {
+        return false;
+      }
+
       return false;
     } catch (e) {
       print('❌ خطا در بررسی قابلیت حذف رزرو: $e');
@@ -413,7 +457,7 @@ class _ReservationsPageState extends State<ReservationsPage> {
     }
   }
 
-  // حذف رزرو از دیتابیس
+  // لغو رزرو (تغییر وضعیت بجای حذف)
   Future<void> _deleteReservation(Map<String, dynamic> reservation) async {
     try {
       // نمایش لودینگ
@@ -425,17 +469,61 @@ class _ReservationsPageState extends State<ReservationsPage> {
             children: [
               CircularProgressIndicator(),
               SizedBox(width: 16),
-              Text('در حال حذف رزرو...'),
+              Text('در حال لغو رزرو...'),
             ],
           ),
         ),
       );
 
-      // حذف از دیتابیس
+      // بررسی وضعیت قبلی رزرو
+      final currentStatus = reservation['status']?.toString().toLowerCase();
+      String newStatus;
+
+      // اگر رزرو تایید شده بود، برای ادمین مهم است
+      if (currentStatus == 'confirmed' || currentStatus == 'تایید شده') {
+        newStatus = 'user_cancelled'; // ادمین باید بداند این رزرو تایید شده بود
+      } else {
+        newStatus = 'cancelled'; // رزرو در انتظار بود، عادی لغو می‌شود
+      }
+
+      // تغییر وضعیت بجای حذف
       await SupabaseConfig.client
           .from('reservations')
-          .delete()
-          .eq('id', reservation['id']);
+          .update({'status': newStatus}).eq('id', reservation['id']);
+
+      // اگر رزرو تایید شده بود، نوتیفیکیشن برای ادمین ایجاد کن
+      if (newStatus == 'user_cancelled') {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final notifications =
+              prefs.getStringList('admin_notifications') ?? [];
+
+          final notificationData = {
+            'id': DateTime.now().millisecondsSinceEpoch.toString(),
+            'type': 'user_cancellation',
+            'title': 'لغو رزرو توسط کاربر',
+            'message': 'رزرو تایید شده لغو شد',
+            'customer_name': reservation['customer_name'] ?? 'کاربر',
+            'customer_phone': reservation['customer_phone'] ?? '',
+            'service_name': reservation['services']?['label'] ??
+                reservation['service'] ??
+                '',
+            'model_name': reservation['models']?['name'] ?? '',
+            'date': reservation['date'],
+            'time': reservation['time'] ?? '',
+            'created_at': DateTime.now().toIso8601String(),
+            'is_read': false,
+          };
+
+          notifications.add(jsonEncode(notificationData));
+          await prefs.setStringList('admin_notifications', notifications);
+
+          print(
+              '✅ نوتیفیکیشن برای ادمین ذخیره شد: ${reservation['customer_name']} - ${reservation['service']}');
+        } catch (e) {
+          print('⚠️ خطا در ذخیره نوتیفیکیشن: $e');
+        }
+      }
 
       // بستن لودینگ
       if (mounted) Navigator.pop(context);
@@ -444,7 +532,7 @@ class _ReservationsPageState extends State<ReservationsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('رزرو با موفقیت حذف شد'),
+            content: Text('رزرو با موفقیت لغو شد'),
             backgroundColor: Colors.green,
           ),
         );
@@ -452,15 +540,18 @@ class _ReservationsPageState extends State<ReservationsPage> {
 
       // بارگذاری مجدد لیست رزروها
       await _fetchTodayReservations();
+
+      // بارگذاری مجدد خدمات بر اساس رزروهای جدید
+      _loadServicesFromReservations();
     } catch (e) {
       // بستن لودینگ در صورت خطا
       if (mounted) Navigator.pop(context);
 
-      print('❌ خطا در حذف رزرو: $e');
+      print('❌ خطا در لغو رزرو: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در حذف رزرو: $e'),
+            content: Text('خطا در لغو رزرو: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -476,6 +567,12 @@ class _ReservationsPageState extends State<ReservationsPage> {
       case 'cancelled':
       case 'لغو شده':
         return Colors.red;
+      case 'user_cancelled':
+      case 'لغو شده توسط شما':
+        return Colors.deepOrange; // رنگ متفاوت برای لغو شده توسط کاربر
+      case 'admin_cancelled':
+      case 'لغو شده توسط ادمین':
+        return Colors.red;
       case 'pending':
       case 'در انتظار':
       default:
@@ -489,6 +586,10 @@ class _ReservationsPageState extends State<ReservationsPage> {
         return 'تایید شده';
       case 'cancelled':
         return 'لغو شده';
+      case 'user_cancelled':
+        return 'لغو شده توسط شما';
+      case 'admin_cancelled':
+        return 'لغو شده توسط ادمین';
       case 'pending':
         return 'در انتظار';
       default:
