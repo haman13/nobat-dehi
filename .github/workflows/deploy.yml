@@ -20,7 +20,7 @@ jobs:
       run: flutter pub get
     
     - name: Build web
-      run: flutter build web --base-href "/REPOSITORY-NAME/"
+      run: flutter build web --base-href "/nobat-dehi/"
     
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
