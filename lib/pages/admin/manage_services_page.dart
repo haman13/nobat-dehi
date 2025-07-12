@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:flutter_application_1/theme.dart';
+import 'package:flutter_application_1/utils/responsive_helper.dart';
 
 class ManageServicesPage extends StatefulWidget {
   const ManageServicesPage({super.key});
@@ -395,26 +396,31 @@ class _ManageServicesPageState extends State<ManageServicesPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('مدیریت خدمات و مدل‌ها'),
-        centerTitle: true,
-        backgroundColor: Colors.blue,
-        bottom: TabBar(
+    return ResponsiveHelper.wrapWithDesktopConstraint(
+      context,
+      Scaffold(
+        backgroundColor: Colors.green[50],
+        appBar: AppBar(
+          title: const Text('مدیریت خدمات و مدل‌ها'),
+          centerTitle: true,
+          backgroundColor: Colors.green,
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'خدمات'),
+              Tab(text: 'مدل‌ها'),
+            ],
+          ),
+        ),
+        body: TabBarView(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'خدمات'),
-            Tab(text: 'مدل‌ها'),
+          children: [
+            _buildServicesList(),
+            _buildModelsList(),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildServicesList(),
-          _buildModelsList(),
-        ],
-      ),
+      backgroundColor: Colors.green[25], // حاشیه‌های چپ و راست سبز کمرنگ
     );
   }
 

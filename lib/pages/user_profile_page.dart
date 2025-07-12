@@ -155,10 +155,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    print(
-        'UserProfilePage phoneNumber: [32m[1m[4m[7m${widget.phoneNumber}[0m');
-    print('reservationMobile: [31m[1m[4m[7m$reservationMobile[0m');
+    print('UserProfilePage phoneNumber: [32m[1m[4m[7m${widget.phoneNumber}[0m');
+    print('reservationMobile: [31m[1m[4m[7m$reservationMobile[0m');
     return Scaffold(
+      backgroundColor: AppTheme.primaryLightColor2,
       appBar: AppBar(
         title: const Text('پروفایل'),
         centerTitle: true,

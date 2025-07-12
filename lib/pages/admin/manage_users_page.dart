@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_application_1/utils/responsive_helper.dart';
 
 class ManageUsersPage extends StatefulWidget {
   const ManageUsersPage({super.key});
@@ -305,12 +306,12 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      color: Colors.blue[50],
+      color: Colors.purple[50],
       child: Row(
         children: [
           Expanded(
             child: _buildStatCard(
-                'کل کاربران', totalUsers.toString(), Colors.blue),
+                'کل کاربران', totalUsers.toString(), Colors.purple),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -358,296 +359,287 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('مدیریت کاربران'),
-        centerTitle: true,
-        backgroundColor: AppTheme.primaryLightColor3,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadUsers,
-            tooltip: 'بروزرسانی',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+    return ResponsiveHelper.wrapWithDesktopConstraint(
+      context,
+      Scaffold(
+        backgroundColor: Colors.purple[50],
+        appBar: AppBar(
+          title: const Text('مدیریت کاربران'),
+          centerTitle: true,
+          backgroundColor: Colors.purple,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadUsers,
+              tooltip: 'بروزرسانی',
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadUsers,
+                          child: const Text('تلاش مجدد'),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
                     children: [
-                      const Icon(Icons.error_outline,
-                          size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16),
+                      // آمار کاربران
+                      _buildUserStats(),
+
+                      // جعبه جستجو
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        color: Colors.purple[50],
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'جستجو بر اساس نام یا شماره تماس',
+                            prefixIcon:
+                                const Icon(Icons.search, color: Colors.grey),
+                            suffixIcon: searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _applySearch('');
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          onChanged: _applySearch,
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadUsers,
-                        child: const Text('تلاش مجدد'),
+
+                      // نمایش تعداد کاربران فیلتر شده
+                      if (searchQuery.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          color: Colors.purple[100],
+                          child: Row(
+                            children: [
+                              Icon(Icons.filter_list,
+                                  color: Colors.purple[700], size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'نمایش ${filteredUsers.length} کاربر از ${users.length} کاربر',
+                                style: TextStyle(
+                                  color: Colors.purple[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // لیست کاربران
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _loadUsers,
+                          child: filteredUsers.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        searchQuery.isNotEmpty
+                                            ? Icons.search_off
+                                            : Icons.people_outline,
+                                        size: 64,
+                                        color: Colors.grey,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        searchQuery.isNotEmpty
+                                            ? 'هیچ کاربری با این عبارت یافت نشد'
+                                            : 'هیچ کاربری ثبت نشده است',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: filteredUsers.length,
+                                  itemBuilder: (context, index) {
+                                    final user = filteredUsers[index];
+                                    final fullName =
+                                        user['full_name']?.toString() ??
+                                            'نام نامشخص';
+                                    final phone = user['phone']?.toString() ??
+                                        'شماره نامشخص';
+                                    final isBlocked =
+                                        user['is_blocked'] == true;
+                                    final blockedReason =
+                                        user['blocked_reason']?.toString();
+
+                                    return Card(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      elevation: 2,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: isBlocked
+                                            ? const BorderSide(
+                                                color: Colors.red, width: 1)
+                                            : BorderSide.none,
+                                      ),
+                                      child: ListTile(
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 8,
+                                        ),
+                                        leading: CircleAvatar(
+                                          backgroundColor: isBlocked
+                                              ? Colors.red.withOpacity(0.2)
+                                              : AppTheme.primaryLightColor
+                                                  .withOpacity(0.2),
+                                          child: Icon(
+                                            isBlocked
+                                                ? Icons.block
+                                                : Icons.person,
+                                            color: isBlocked
+                                                ? Colors.red
+                                                : AppTheme.primaryColor,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        title: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                fullName,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: isBlocked
+                                                      ? Colors.red[700]
+                                                      : null,
+                                                ),
+                                              ),
+                                            ),
+                                            if (isBlocked)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red,
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: const Text(
+                                                  'مسدود',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.phone,
+                                                    size: 14,
+                                                    color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Text(phone),
+                                              ],
+                                            ),
+                                            if (isBlocked &&
+                                                blockedReason != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 4),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.warning,
+                                                        size: 14,
+                                                        color: Colors.orange),
+                                                    const SizedBox(width: 4),
+                                                    Expanded(
+                                                      child: Text(
+                                                        'دلیل: $blockedReason',
+                                                        style: const TextStyle(
+                                                          color: Colors.orange,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (isBlocked)
+                                              IconButton(
+                                                icon: const Icon(
+                                                    Icons.lock_open,
+                                                    color: Colors.green),
+                                                onPressed: () => _unblockUser(
+                                                    phone, fullName),
+                                                tooltip: 'رفع انسداد',
+                                              )
+                                            else
+                                              IconButton(
+                                                icon: const Icon(Icons.block,
+                                                    color: Colors.red),
+                                                onPressed: () =>
+                                                    _blockUser(phone, fullName),
+                                                tooltip: 'مسدود کردن',
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
                       ),
                     ],
                   ),
-                )
-              : Column(
-                  children: [
-                    // آمار کاربران
-                    _buildUserStats(),
-
-                    // جعبه جستجو
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: Colors.grey[100],
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'جستجو بر اساس نام یا شماره تماس',
-                          prefixIcon:
-                              const Icon(Icons.search, color: Colors.grey),
-                          suffixIcon: searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _applySearch('');
-                                  },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                        onChanged: _applySearch,
-                      ),
-                    ),
-
-                    // نمایش تعداد کاربران فیلتر شده
-                    if (searchQuery.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        color: Colors.orange[50],
-                        child: Row(
-                          children: [
-                            Icon(Icons.filter_list,
-                                color: Colors.orange[700], size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'نمایش ${filteredUsers.length} کاربر از ${users.length} کاربر',
-                              style: TextStyle(
-                                color: Colors.orange[700],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // لیست کاربران
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: _loadUsers,
-                        child: filteredUsers.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      searchQuery.isNotEmpty
-                                          ? Icons.search_off
-                                          : Icons.people_outline,
-                                      size: 64,
-                                      color: Colors.grey,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      searchQuery.isNotEmpty
-                                          ? 'هیچ کاربری با این عبارت یافت نشد'
-                                          : 'هیچ کاربری ثبت نشده است',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: filteredUsers.length,
-                                itemBuilder: (context, index) {
-                                  final user = filteredUsers[index];
-                                  final fullName =
-                                      user['full_name']?.toString() ??
-                                          'نام نامشخص';
-                                  final phone = user['phone']?.toString() ??
-                                      'شماره نامشخص';
-                                  final isBlocked = user['is_blocked'] == true;
-                                  final blockedReason =
-                                      user['blocked_reason']?.toString();
-
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: isBlocked
-                                          ? const BorderSide(
-                                              color: Colors.red, width: 1)
-                                          : BorderSide.none,
-                                    ),
-                                    child: ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
-                                      ),
-                                      leading: CircleAvatar(
-                                        backgroundColor: isBlocked
-                                            ? Colors.red.withOpacity(0.2)
-                                            : AppTheme.primaryLightColor3
-                                                .withOpacity(0.2),
-                                        child: Icon(
-                                          isBlocked
-                                              ? Icons.block
-                                              : Icons.person,
-                                          color: isBlocked
-                                              ? Colors.red
-                                              : AppTheme.primaryColor,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      title: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              fullName,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                                color: isBlocked
-                                                    ? Colors.red[700]
-                                                    : null,
-                                              ),
-                                            ),
-                                          ),
-                                          if (isBlocked)
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.red,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: const Text(
-                                                'مسدود',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      subtitle: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.phone,
-                                                size: 16,
-                                                color: Colors.grey,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                phone,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          if (isBlocked &&
-                                              blockedReason != null &&
-                                              blockedReason.isNotEmpty) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'دلیل: $blockedReason',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.red,
-                                                fontStyle: FontStyle.italic,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // دکمه بلاک/آنبلاک
-                                          IconButton(
-                                            icon: Icon(
-                                              isBlocked
-                                                  ? Icons.lock_open
-                                                  : Icons.lock,
-                                              color: isBlocked
-                                                  ? Colors.green
-                                                  : Colors.red,
-                                            ),
-                                            onPressed: () {
-                                              if (isBlocked) {
-                                                _unblockUser(phone, fullName);
-                                              } else {
-                                                _blockUser(phone, fullName);
-                                              }
-                                            },
-                                            tooltip: isBlocked
-                                                ? 'رفع مسدودیت'
-                                                : 'مسدود کردن',
-                                          ),
-
-                                          // دکمه تماس (فقط برای کاربران غیر مسدود)
-                                          if (!isBlocked &&
-                                              phone != 'شماره نامشخص')
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.phone,
-                                                color: Colors.blue,
-                                              ),
-                                              onPressed: () => _callUser(phone),
-                                              tooltip: 'تماس با $fullName',
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
+      ),
+      backgroundColor: Colors.purple[25], // حاشیه‌های چپ و راست بنفش کمرنگ
     );
   }
 }

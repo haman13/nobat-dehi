@@ -21,7 +21,7 @@ class SalonApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'نوبت دهی',
+      title: 'نوبت دهی سالن زیبایی',
       debugShowCheckedModeBanner: false,
       initialRoute: '/login',
       routes: {
@@ -31,24 +31,198 @@ class SalonApp extends StatelessWidget {
         '/admin/dashboard': (context) => const AdminDashboardPage(),
         '/reservation': (context) => const ReservationPage(),
       },
-      theme: ThemeData(
-        primaryColor: AppTheme.primaryColor,
-        scaffoldBackgroundColor: AppTheme.backgroundColor,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppTheme.primaryColor,
-          centerTitle: true,
-          elevation: 0,
+      theme: _buildAppTheme(),
+      home: const WelcomePage(),
+    );
+  }
+
+  ThemeData _buildAppTheme() {
+    return ThemeData(
+      useMaterial3: true,
+
+      // Color scheme
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppTheme.primaryColor,
+        brightness: Brightness.light,
+        primary: AppTheme.primaryColor,
+        secondary: AppTheme.accentColor,
+        surface: AppTheme.surfaceColor,
+        background: AppTheme.backgroundColor,
+        error: AppTheme.statusCancelledColor,
+      ),
+
+      // Primary colors
+      primaryColor: AppTheme.primaryColor,
+      scaffoldBackgroundColor: AppTheme.backgroundColor,
+
+      // AppBar theme
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        centerTitle: true,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: AppTheme.titleStyle.copyWith(
+          color: Colors.white,
+          fontSize: 20,
         ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: AppTheme.primaryButtonStyle,
-        ),
-        textTheme: const TextTheme(
-          titleLarge: AppTheme.titleStyle,
-          titleMedium: AppTheme.subtitleStyle,
-          bodyLarge: AppTheme.bodyStyle,
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+          size: 24,
         ),
       ),
-      home: const WelcomePage(),
+
+      // Card theme
+      cardTheme: CardTheme(
+        color: AppTheme.cardBackgroundColor,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      ),
+
+      // Button themes
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: AppTheme.primaryButtonStyle,
+      ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: AppTheme.secondaryButtonStyle,
+      ),
+
+      textButtonTheme: TextButtonThemeData(
+        style: AppTheme.textButtonStyle,
+      ),
+
+      // Input decoration theme
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide:
+              BorderSide(color: AppTheme.textHintColor.withOpacity(0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide:
+              BorderSide(color: AppTheme.textHintColor.withOpacity(0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide:
+              const BorderSide(color: AppTheme.statusCancelledColor, width: 2),
+        ),
+        fillColor: AppTheme.surfaceColor,
+        filled: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        hintStyle: const TextStyle(
+          color: AppTheme.textHintColor,
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+        ),
+        labelStyle: const TextStyle(
+          color: AppTheme.textSecondaryColor,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+
+      // Text theme
+      textTheme: TextTheme(
+        displayLarge: AppTheme.titleStyle,
+        displayMedium: AppTheme.subtitleStyle,
+        headlineLarge: AppTheme.titleStyle.copyWith(fontSize: 32),
+        headlineMedium: AppTheme.titleStyle.copyWith(fontSize: 28),
+        headlineSmall: AppTheme.subtitleStyle,
+        titleLarge: AppTheme.subtitleStyle,
+        titleMedium: AppTheme.bodyStyle.copyWith(fontWeight: FontWeight.w600),
+        titleSmall: AppTheme.bodyStyle.copyWith(fontWeight: FontWeight.w500),
+        bodyLarge: AppTheme.bodyStyle,
+        bodyMedium: AppTheme.bodyStyle.copyWith(fontSize: 14),
+        bodySmall: AppTheme.captionStyle,
+        labelLarge: AppTheme.buttonTextStyle,
+        labelMedium:
+            AppTheme.captionStyle.copyWith(fontWeight: FontWeight.w500),
+        labelSmall: AppTheme.captionStyle.copyWith(fontSize: 12),
+      ),
+
+      // Dialog theme
+      dialogTheme: DialogTheme(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        titleTextStyle: AppTheme.subtitleStyle,
+        contentTextStyle: AppTheme.bodyStyle,
+      ),
+
+      // Snackbar theme
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppTheme.textPrimaryColor,
+        contentTextStyle: AppTheme.bodyStyle.copyWith(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        behavior: SnackBarBehavior.floating,
+        elevation: 0,
+      ),
+
+      // Progress indicator theme
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppTheme.primaryColor,
+        linearTrackColor: AppTheme.primaryLightColor,
+        circularTrackColor: AppTheme.primaryLightColor,
+      ),
+
+      // Icon theme
+      iconTheme: const IconThemeData(
+        color: AppTheme.textSecondaryColor,
+        size: 24,
+      ),
+
+      // Divider theme
+      dividerTheme: DividerThemeData(
+        color: AppTheme.textHintColor.withOpacity(0.2),
+        thickness: 1,
+        space: 1,
+      ),
+
+      // List tile theme
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        titleTextStyle:
+            AppTheme.bodyStyle.copyWith(fontWeight: FontWeight.w500),
+        subtitleTextStyle: AppTheme.captionStyle,
+      ),
+
+      // Navigation bar theme
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: AppTheme.primaryColor,
+        unselectedItemColor: AppTheme.textSecondaryColor,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+      ),
+
+      // Additional visual properties
+      splashColor: AppTheme.primaryColor.withOpacity(0.1),
+      highlightColor: AppTheme.primaryColor.withOpacity(0.05),
+      hoverColor: AppTheme.primaryColor.withOpacity(0.03),
+      focusColor: AppTheme.primaryColor.withOpacity(0.1),
     );
   }
 }

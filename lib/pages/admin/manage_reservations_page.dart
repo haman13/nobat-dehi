@@ -5,6 +5,7 @@ import 'package:flutter_application_1/models/reservation.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
+import 'package:flutter_application_1/utils/responsive_helper.dart';
 
 class ManageReservationsPage extends StatefulWidget {
   const ManageReservationsPage({super.key});
@@ -56,8 +57,9 @@ class _ManageReservationsPageState extends State<ManageReservationsPage> {
       });
 
       // بارگذاری رزروها از دیتابیس
-      final reservationsResponse =
-          await SupabaseConfig.client.from('reservations').select('''
+      final reservationsResponse = await SupabaseConfig.client
+          .from('reservations')
+          .select('''
             *,
             models!inner(
               id,
@@ -70,7 +72,9 @@ class _ManageReservationsPageState extends State<ManageReservationsPage> {
               id,
               label
             )
-          ''').order('date', ascending: false);
+          ''').order(
+              'date',
+              ascending: false);
 
       // بارگذاری خدمات از دیتابیس
       final servicesResponse =
@@ -351,449 +355,631 @@ class _ManageReservationsPageState extends State<ManageReservationsPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('مدیریت رزروها'),
-        centerTitle: true,
-        backgroundColor: AppTheme.primaryLightColor3,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadReservations,
-            tooltip: 'بروزرسانی',
+  Widget _buildReservationCard(dynamic reservation) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      elevation: 2,
+      color: Colors.blue[50], // پس‌زمینه آبی کمرنگ برای کارت
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blue[200]!, width: 1), // حاشیه آبی کمرنگ
+      ),
+      child: ExpansionTile(
+        backgroundColor: Colors.blue[50], // پس‌زمینه ExpansionTile
+        collapsedBackgroundColor: Colors.blue[50], // پس‌زمینه وقتی بسته است
+        title: Text(
+          reservation['services']?['label'] ?? 'خدمت نامشخص',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[800], // رنگ متن عنوان
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              'نام: ${reservation['customer_name'] ?? 'نامشخص'}',
+              style: TextStyle(color: Colors.blue[700]),
+            ),
+            Text(
+              '${_convertToPersianDate(reservation['date'])} - ${reservation['time'] ?? ''}',
+              style: TextStyle(color: Colors.blue[600]),
+            ),
+          ],
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: _getStatusColor(reservation['status'] ?? 'pending'),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            _getStatusText(reservation['status'] ?? 'pending'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        children: [
+          Container(
+            color: Colors.blue[25], // پس‌زمینه بخش جزئیات
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.person, size: 16, color: Colors.blue[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(
+                              'نام: ${reservation['customer_name'] ?? 'نامشخص'}',
+                              style: TextStyle(color: Colors.blue[700]))),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.phone, size: 16, color: Colors.blue[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(
+                              'تلفن: ${reservation['customer_phone'] ?? 'نامشخص'}',
+                              style: TextStyle(color: Colors.blue[700]))),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.category, size: 16, color: Colors.blue[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(
+                              'مدل: ${reservation['models']?['name'] ?? 'نامشخص'}',
+                              style: TextStyle(color: Colors.blue[700]))),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.payments, size: 16, color: Colors.blue[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(
+                              'قیمت: ${reservation['models']?['price'] ?? 0} تومان',
+                              style: TextStyle(color: Colors.blue[700]))),
+                    ],
+                  ),
+                  if (reservation['notes'] != null &&
+                      reservation['notes'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.note, size: 16, color: Colors.blue[600]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text('یادداشت: ${reservation['notes']}',
+                                style: TextStyle(color: Colors.blue[700]))),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  // دکمه‌های عملیات - responsive layout
+                  Builder(
+                    builder: (context) {
+                      final isMobile =
+                          ResponsiveHelper.screenWidth(context) < 600;
+
+                      if (reservation['status'] != 'cancelled' &&
+                          reservation['status'] != 'user_cancelled' &&
+                          reservation['status'] != 'admin_cancelled') {
+                        if (isMobile) {
+                          // برای موبایل دکمه‌ها را در Column قرار می‌دهیم
+                          return Column(
+                            children: [
+                              if (reservation['status'] != 'confirmed')
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _updateReservationStatus(
+                                        reservation, 'تأیید شده'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    icon: const Icon(Icons.check, size: 16),
+                                    label: const Text('تأیید'),
+                                  ),
+                                ),
+                              if (reservation['status'] != 'confirmed')
+                                const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _updateReservationStatus(
+                                      reservation, 'لغو شده از سمت ادمین'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  icon: const Icon(Icons.cancel, size: 16),
+                                  label: const Text('لغو'),
+                                ),
+                              ),
+                            ],
+                          );
+                        } else {
+                          // برای دسکتاپ/تبلت دکمه‌ها را در Row قرار می‌دهیم
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              if (reservation['status'] != 'confirmed')
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _updateReservationStatus(
+                                        reservation, 'تأیید شده'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    icon: const Icon(Icons.check, size: 16),
+                                    label: const Text('تأیید'),
+                                  ),
+                                ),
+                              if (reservation['status'] != 'confirmed')
+                                const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _updateReservationStatus(
+                                      reservation, 'لغو شده از سمت ادمین'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  icon: const Icon(Icons.cancel, size: 16),
+                                  label: const Text('لغو'),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                      } else {
+                        // برای رزروهای لغو شده
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue[300]!),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.block,
+                                  color: Colors.blue[600], size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                'رزرو لغو شده',
+                                style: TextStyle(color: Colors.blue[700]),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(_error!, textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadReservations,
-                        child: const Text('تلاش مجدد'),
-                      ),
-                    ],
-                  ),
-                )
-              : Column(
-                  children: [
-                    // فیلترهای پیشرفته
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: Colors.grey[100],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsiveHelper.wrapWithDesktopConstraint(
+      context,
+      Scaffold(
+        backgroundColor: Colors.blue[50],
+        appBar: AppBar(
+          title: const Text('مدیریت رزروها'),
+          centerTitle: true,
+          backgroundColor: Colors.blue,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadReservations,
+              tooltip: 'بروزرسانی',
+            ),
+          ],
+        ),
+        body: Container(
+          color: Colors.blue[25], // پس‌زمینه کلی آبی بسیار کمرنگ
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: selectedService,
-                                  decoration: const InputDecoration(
-                                    labelText: 'خدمت',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.category),
-                                  ),
-                                  items: availableServices.map((service) {
-                                    return DropdownMenuItem(
-                                      value: service,
-                                      child: Text(service),
-                                    );
-                                  }).toList(),
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedService = value!;
-                                    });
-                                    _applyFilters();
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: selectedStatus,
-                                  decoration: const InputDecoration(
-                                    labelText: 'وضعیت',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.info),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: 'همه', child: Text('همه')),
-                                    DropdownMenuItem(
-                                        value: 'در انتظار',
-                                        child: Text('در انتظار')),
-                                    DropdownMenuItem(
-                                        value: 'تأیید شده',
-                                        child: Text('تأیید شده')),
-                                    DropdownMenuItem(
-                                        value: 'لغو شده',
-                                        child: Text('لغو شده')),
-                                    DropdownMenuItem(
-                                        value: '🔔 لغو شده توسط کاربر',
-                                        child: Text('🔔 لغو شده توسط کاربر')),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedStatus = value!;
-                                    });
-                                    _applyFilters();
-                                  },
-                                ),
-                              ),
-                            ],
+                          const Icon(Icons.error_outline,
+                              size: 64, color: Colors.red),
+                          const SizedBox(height: 16),
+                          Text(_error!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadReservations,
+                            child: const Text('تلاش مجدد'),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: selectedDateFilter,
-                                  decoration: const InputDecoration(
-                                    labelText: 'بازه زمانی',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.date_range),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: 'همه', child: Text('همه')),
-                                    DropdownMenuItem(
-                                        value: 'امروز', child: Text('امروز')),
-                                    DropdownMenuItem(
-                                        value: 'این هفته',
-                                        child: Text('این هفته')),
-                                    DropdownMenuItem(
-                                        value: 'این ماه',
-                                        child: Text('این ماه')),
-                                    DropdownMenuItem(
-                                        value: 'ماه انتخابی',
-                                        child: Text('ماه انتخابی')),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedDateFilter = value!;
-                                    });
-                                    if (value == 'ماه انتخابی') {
-                                      _showMonthPicker();
-                                    } else {
-                                      _applyFilters();
-                                    }
-                                  },
-                                ),
-                              ),
-                              if (selectedDateFilter == 'ماه انتخابی') ...[
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey),
-                                      borderRadius: BorderRadius.circular(4),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        // فیلترهای پیشرفته
+                        Container(
+                          padding: EdgeInsets.all(
+                              ResponsiveHelper.screenWidth(context) < 600
+                                  ? 10
+                                  : 14),
+                          color: Colors.blue[50],
+                          child: Builder(
+                            builder: (context) {
+                              final isMobile =
+                                  ResponsiveHelper.screenWidth(context) < 600;
+
+                              if (isMobile) {
+                                // برای موبایل فیلترها را در Column قرار می‌دهیم
+                                return Column(
+                                  children: [
+                                    DropdownButtonFormField<String>(
+                                      value: selectedService,
+                                      decoration: const InputDecoration(
+                                        labelText: 'خدمت',
+                                        border: OutlineInputBorder(),
+                                        prefixIcon: Icon(Icons.category),
+                                      ),
+                                      items: availableServices.map((service) {
+                                        return DropdownMenuItem(
+                                          value: service,
+                                          child: Text(service),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedService = value!;
+                                        });
+                                        _applyFilters();
+                                      },
                                     ),
-                                    child: Row(
+                                    const SizedBox(height: 8),
+                                    DropdownButtonFormField<String>(
+                                      value: selectedStatus,
+                                      decoration: const InputDecoration(
+                                        labelText: 'وضعیت',
+                                        border: OutlineInputBorder(),
+                                        prefixIcon: Icon(Icons.info),
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(
+                                            value: 'همه', child: Text('همه')),
+                                        DropdownMenuItem(
+                                            value: 'در انتظار',
+                                            child: Text('در انتظار')),
+                                        DropdownMenuItem(
+                                            value: 'تأیید شده',
+                                            child: Text('تأیید شده')),
+                                        DropdownMenuItem(
+                                            value: 'لغو شده',
+                                            child: Text('لغو شده')),
+                                        DropdownMenuItem(
+                                            value: '🔔 لغو شده توسط کاربر',
+                                            child:
+                                                Text('🔔 لغو شده توسط کاربر')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedStatus = value!;
+                                        });
+                                        _applyFilters();
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+                                    DropdownButtonFormField<String>(
+                                      value: selectedDateFilter,
+                                      decoration: const InputDecoration(
+                                        labelText: 'بازه زمانی',
+                                        border: OutlineInputBorder(),
+                                        prefixIcon: Icon(Icons.date_range),
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(
+                                            value: 'همه', child: Text('همه')),
+                                        DropdownMenuItem(
+                                            value: 'امروز',
+                                            child: Text('امروز')),
+                                        DropdownMenuItem(
+                                            value: 'این هفته',
+                                            child: Text('این هفته')),
+                                        DropdownMenuItem(
+                                            value: 'این ماه',
+                                            child: Text('این ماه')),
+                                        DropdownMenuItem(
+                                            value: 'ماه انتخابی',
+                                            child: Text('ماه انتخابی')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedDateFilter = value!;
+                                        });
+                                        if (value == 'ماه انتخابی') {
+                                          _showMonthPicker();
+                                        } else {
+                                          _applyFilters();
+                                        }
+                                      },
+                                    ),
+                                    if (selectedDateFilter ==
+                                        'ماه انتخابی') ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: Colors.blue[300]!),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          color: Colors.blue[25],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.calendar_month,
+                                                color: Colors.blue[600]),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                'ماه انتخابی: ${persianMonths[selectedMonth - 1]} $selectedYear',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.blue[700],
+                                                ),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(Icons.edit,
+                                                  size: 18,
+                                                  color: Colors.blue[600]),
+                                              onPressed: _showMonthPicker,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                );
+                              } else {
+                                // برای دسکتاپ/تبلت فیلترها را در Row قرار می‌دهیم
+                                return Column(
+                                  children: [
+                                    Row(
                                       children: [
-                                        const Icon(Icons.calendar_month,
-                                            color: Colors.grey),
+                                        Expanded(
+                                          child:
+                                              DropdownButtonFormField<String>(
+                                            value: selectedService,
+                                            decoration: const InputDecoration(
+                                              labelText: 'خدمت',
+                                              border: OutlineInputBorder(),
+                                              prefixIcon: Icon(Icons.category),
+                                            ),
+                                            items: availableServices
+                                                .map((service) {
+                                              return DropdownMenuItem(
+                                                value: service,
+                                                child: Text(service),
+                                              );
+                                            }).toList(),
+                                            onChanged: (value) {
+                                              setState(() {
+                                                selectedService = value!;
+                                              });
+                                              _applyFilters();
+                                            },
+                                          ),
+                                        ),
                                         const SizedBox(width: 8),
                                         Expanded(
-                                          child: Text(
-                                            'ماه انتخابی: ${persianMonths[selectedMonth - 1]} $selectedYear',
-                                            style:
-                                                const TextStyle(fontSize: 14),
+                                          child:
+                                              DropdownButtonFormField<String>(
+                                            value: selectedStatus,
+                                            decoration: const InputDecoration(
+                                              labelText: 'وضعیت',
+                                              border: OutlineInputBorder(),
+                                              prefixIcon: Icon(Icons.info),
+                                            ),
+                                            items: const [
+                                              DropdownMenuItem(
+                                                  value: 'همه',
+                                                  child: Text('همه')),
+                                              DropdownMenuItem(
+                                                  value: 'در انتظار',
+                                                  child: Text('در انتظار')),
+                                              DropdownMenuItem(
+                                                  value: 'تأیید شده',
+                                                  child: Text('تأیید شده')),
+                                              DropdownMenuItem(
+                                                  value: 'لغو شده',
+                                                  child: Text('لغو شده')),
+                                              DropdownMenuItem(
+                                                  value:
+                                                      '🔔 لغو شده توسط کاربر',
+                                                  child: Text(
+                                                      '🔔 لغو شده توسط کاربر')),
+                                            ],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                selectedStatus = value!;
+                                              });
+                                              _applyFilters();
+                                            },
                                           ),
-                                        ),
-                                        IconButton(
-                                          icon:
-                                              const Icon(Icons.edit, size: 20),
-                                          onPressed: _showMonthPicker,
                                         ),
                                       ],
                                     ),
-                                  ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child:
+                                              DropdownButtonFormField<String>(
+                                            value: selectedDateFilter,
+                                            decoration: const InputDecoration(
+                                              labelText: 'بازه زمانی',
+                                              border: OutlineInputBorder(),
+                                              prefixIcon:
+                                                  Icon(Icons.date_range),
+                                            ),
+                                            items: const [
+                                              DropdownMenuItem(
+                                                  value: 'همه',
+                                                  child: Text('همه')),
+                                              DropdownMenuItem(
+                                                  value: 'امروز',
+                                                  child: Text('امروز')),
+                                              DropdownMenuItem(
+                                                  value: 'این هفته',
+                                                  child: Text('این هفته')),
+                                              DropdownMenuItem(
+                                                  value: 'این ماه',
+                                                  child: Text('این ماه')),
+                                              DropdownMenuItem(
+                                                  value: 'ماه انتخابی',
+                                                  child: Text('ماه انتخابی')),
+                                            ],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                selectedDateFilter = value!;
+                                              });
+                                              if (value == 'ماه انتخابی') {
+                                                _showMonthPicker();
+                                              } else {
+                                                _applyFilters();
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        if (selectedDateFilter ==
+                                            'ماه انتخابی') ...[
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: Colors.blue[300]!),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                color: Colors.blue[25],
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.calendar_month,
+                                                      color: Colors.blue[600]),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'ماه انتخابی: ${persianMonths[selectedMonth - 1]} $selectedYear',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Colors.blue[700],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  IconButton(
+                                                    icon: Icon(Icons.edit,
+                                                        size: 20,
+                                                        color:
+                                                            Colors.blue[600]),
+                                                    onPressed: _showMonthPicker,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              }
+                            },
+                          ),
+                        ),
+
+                        // نمایش تعداد نتایج
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          color: Colors.blue[100],
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline,
+                                  color: Colors.blue[700], size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${filteredData.length} رزرو یافت شد',
+                                style: TextStyle(
+                                  color: Colors.blue[700],
+                                  fontWeight: FontWeight.w500,
                                 ),
-                              ],
+                              ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
 
-                    // نمایش تعداد نتایج
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      color: Colors.blue[50],
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline,
-                              color: Colors.blue[700], size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${filteredData.length} رزرو یافت شد',
-                            style: TextStyle(
-                              color: Colors.blue[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                        // لیست رزروها
+                        Expanded(
+                          child: filteredData.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.calendar_today,
+                                          size: 64, color: Colors.blue[300]),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'هیچ رزروی یافت نشد',
+                                        style: TextStyle(
+                                            fontSize: 18,
+                                            color: Colors.blue[600]),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.all(14),
+                                  itemCount: filteredData.length,
+                                  itemBuilder: (context, index) {
+                                    final reservation = filteredData[index];
+                                    return _buildReservationCard(reservation);
+                                  },
+                                ),
+                        ),
+                      ],
                     ),
-
-                    // لیست رزروها
-                    Expanded(
-                      child: filteredData.isEmpty
-                          ? const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.search_off,
-                                      size: 64, color: Colors.grey),
-                                  SizedBox(height: 16),
-                                  Text('هیچ رزروی با این فیلترها یافت نشد'),
-                                ],
-                              ),
-                            )
-                          : RefreshIndicator(
-                              onRefresh: _loadReservations,
-                              child: ListView.builder(
-                                itemCount: filteredData.length,
-                                itemBuilder: (context, index) {
-                                  final reservation = filteredData[index];
-                                  return Card(
-                                    margin: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: ExpansionTile(
-                                      title: Text(
-                                        reservation['services']?['label'] ??
-                                            'خدمت نامشخص',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      subtitle: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 4),
-                                          Text(
-                                              'نام: ${reservation['customer_name'] ?? 'نامشخص'}'),
-                                          Text(
-                                              '${_convertToPersianDate(reservation['date'])} - ${reservation['time'] ?? ''}'),
-                                        ],
-                                      ),
-                                      trailing: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _getStatusColor(
-                                              reservation['status'] ??
-                                                  'pending'),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          _getStatusText(
-                                              reservation['status'] ??
-                                                  'pending'),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.person,
-                                                      size: 16,
-                                                      color: Colors.grey),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                      child: Text(
-                                                          'نام: ${reservation['customer_name'] ?? 'نامشخص'}')),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.phone,
-                                                      size: 16,
-                                                      color: Colors.grey),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                      child: Text(
-                                                          'تلفن: ${reservation['customer_phone'] ?? 'نامشخص'}')),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.category,
-                                                      size: 16,
-                                                      color: Colors.grey),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                      child: Text(
-                                                          'مدل: ${reservation['models']?['name'] ?? 'نامشخص'}')),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.payments,
-                                                      size: 16,
-                                                      color: Colors.grey),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                      child: Text(
-                                                          'قیمت: ${reservation['models']?['price'] ?? 0} تومان')),
-                                                ],
-                                              ),
-                                              if (reservation['notes'] !=
-                                                      null &&
-                                                  reservation['notes']
-                                                      .toString()
-                                                      .isNotEmpty) ...[
-                                                const SizedBox(height: 8),
-                                                Row(
-                                                  children: [
-                                                    const Icon(Icons.note,
-                                                        size: 16,
-                                                        color: Colors.grey),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                        child: Text(
-                                                            'یادداشت: ${reservation['notes']}')),
-                                                  ],
-                                                ),
-                                              ],
-                                              const SizedBox(height: 16),
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceEvenly,
-                                                children: [
-                                                  if (reservation['status'] !=
-                                                          'cancelled' &&
-                                                      reservation['status'] !=
-                                                          'user_cancelled' &&
-                                                      reservation['status'] !=
-                                                          'admin_cancelled') ...[
-                                                    if (reservation['status'] !=
-                                                        'confirmed')
-                                                      Expanded(
-                                                        child:
-                                                            ElevatedButton.icon(
-                                                          onPressed: () =>
-                                                              _updateReservationStatus(
-                                                                  reservation,
-                                                                  'تأیید شده'),
-                                                          style: ElevatedButton
-                                                              .styleFrom(
-                                                            backgroundColor:
-                                                                Colors.green,
-                                                            foregroundColor:
-                                                                Colors.white,
-                                                          ),
-                                                          icon: const Icon(
-                                                              Icons.check,
-                                                              size: 16),
-                                                          label: const Text(
-                                                              'تأیید'),
-                                                        ),
-                                                      ),
-                                                    if (reservation['status'] !=
-                                                        'confirmed')
-                                                      const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child:
-                                                          ElevatedButton.icon(
-                                                        onPressed: () =>
-                                                            _updateReservationStatus(
-                                                                reservation,
-                                                                'لغو شده از سمت ادمین'),
-                                                        style: ElevatedButton
-                                                            .styleFrom(
-                                                          backgroundColor:
-                                                              Colors.red,
-                                                          foregroundColor:
-                                                              Colors.white,
-                                                        ),
-                                                        icon: const Icon(
-                                                            Icons.cancel,
-                                                            size: 16),
-                                                        label:
-                                                            const Text('لغو'),
-                                                      ),
-                                                    ),
-                                                  ] else ...[
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              12),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.grey[200],
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(8),
-                                                      ),
-                                                      child: Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          Icon(Icons.block,
-                                                              color: Colors
-                                                                  .grey[600],
-                                                              size: 16),
-                                                          const SizedBox(
-                                                              width: 8),
-                                                          Text(
-                                                            'رزرو لغو شده',
-                                                            style: TextStyle(
-                                                                color: Colors
-                                                                    .grey[600]),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
+        ),
+      ),
+      backgroundColor: Colors.blue[25], // حاشیه‌های چپ و راست آبی کمرنگ
     );
   }
 }

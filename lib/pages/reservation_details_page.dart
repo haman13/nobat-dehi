@@ -107,7 +107,7 @@ class _ReservationDetailsPageState extends State<ReservationDetailsPage> {
                   // کارت اصلی
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: AppTheme.cardDecoration,
+                    decoration: AppTheme.modernCardDecoration,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

@@ -3,6 +3,7 @@ import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:flutter_application_1/utils/custom_page_transition.dart';
 import 'package:flutter_application_1/models/reservation_data.dart';
+import 'package:flutter_application_1/utils/responsive_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
 
@@ -18,10 +19,41 @@ class ServicesListPage extends StatefulWidget {
   State<ServicesListPage> createState() => _ServicesListPageState();
 }
 
-class _ServicesListPageState extends State<ServicesListPage> {
+class _ServicesListPageState extends State<ServicesListPage>
+    with TickerProviderStateMixin {
   List<Map<String, dynamic>> servicesList = [];
   bool isLoading = true;
   int columns = 2;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimations();
+    _loadServices();
+  }
+
+  void _setupAnimations() {
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
 
   // فرمت کردن قیمت با جداکننده هزارگان
   String formatPrice(dynamic price) {
@@ -52,13 +84,12 @@ class _ServicesListPageState extends State<ServicesListPage> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadServices();
-  }
-
   Future<void> _loadServices() async {
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+    });
+
     try {
       // گام اول: دریافت لیست یکتای service_idهایی که مدل دارند
       final modelServiceIdsResponse =
@@ -74,20 +105,254 @@ class _ServicesListPageState extends State<ServicesListPage> {
           .select()
           .inFilter('id', ids)
           .order('created_at', ascending: false);
+
+      if (!mounted) return;
       setState(() {
         servicesList = List<Map<String, dynamic>>.from(response);
-        columns = servicesList.length <= 5 ? 2 : 3;
+        columns = _calculateColumns();
         isLoading = false;
       });
+
+      // شروع انیمیشن بعد از لود شدن داده‌ها
+      if (mounted) {
+        _fadeController.forward();
+      }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطا در بارگذاری خدمات: $e')),
-      );
+      _showErrorSnackBar('خطا در بارگذاری خدمات: $e');
     }
+  }
+
+  int _calculateColumns() {
+    final screenWidth = ResponsiveHelper.screenWidth(context);
+
+    // بر اساس عرض صفحه تعداد کاشی‌ها را تعیین کن
+    if (screenWidth >= 1200) return 5; // خیلی بزرگ - 5 کاشی
+    if (screenWidth >= 900) return 4; // بزرگ - 4 کاشی
+    if (screenWidth >= 600) return 3; // متوسط/تبلت - 3 کاشی
+    if (screenWidth >= 400) return 2; // موبایل متوسط - 2 کاشی
+    return 1; // موبایل کوچک - 1 کاشی
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppTheme.statusCancelledColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.primaryLightColor2,
+        ),
+        child: CustomScrollView(
+          slivers: [
+            _buildAppBar(),
+            if (isLoading)
+              _buildLoadingSliver()
+            else if (servicesList.isEmpty)
+              _buildEmptyStateSliver()
+            else
+              _buildServicesGrid(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text(
+          'خدمات سالن زیبایی',
+          style: AppTheme.titleStyle.copyWith(
+            color: Colors.white,
+            fontSize: 20,
+          ),
+        ),
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(30),
+              bottomRight: Radius.circular(30),
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 50,
+                right: -50,
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -30,
+                left: -30,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: _loadServices,
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildLoadingSliver() {
+    return SliverFillRemaining(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: const CircularProgressIndicator(
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'در حال بارگذاری خدمات...',
+              style: AppTheme.bodyStyle.copyWith(
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyStateSliver() {
+    return SliverFillRemaining(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.spa_outlined,
+                    size: 80,
+                    color: AppTheme.primaryColor.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'خدمتی موجود نیست',
+                    style: AppTheme.subtitleStyle,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'در حال حاضر هیچ خدمتی برای رزرو موجود نمی‌باشد',
+                    style: AppTheme.captionStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: _loadServices,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('تلاش مجدد'),
+                    style: AppTheme.primaryButtonStyle,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServicesGrid() {
+    return SliverPadding(
+      padding: EdgeInsets.all(
+          AppTheme.paddingSmall(context) * 2), // کوچک‌تر کردن padding
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing:
+              AppTheme.paddingSmall(context) * 1.5, // کوچک‌تر کردن spacing
+          mainAxisSpacing: AppTheme.paddingSmall(context) * 1.5,
+          childAspectRatio: 0.9, // کمی بلندتر کردن کارت‌ها
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            return FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildServiceCard(servicesList[index], index),
+            );
+          },
+          childCount: servicesList.length,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceCard(Map<String, dynamic> service, int index) {
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 500 + (index * 100)),
+      tween: Tween(begin: 0.0, end: 1.0),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: _ServiceCard(
+            service: service,
+            onTap: () => _onServiceSelected(service),
+          ),
+        );
+      },
+    );
   }
 
   void _onServiceSelected(Map<String, dynamic> service) async {
@@ -880,132 +1145,100 @@ class _ServicesListPageState extends State<ServicesListPage> {
       }
     }
   }
+}
+
+class _ServiceCard extends StatelessWidget {
+  final Map<String, dynamic> service;
+  final VoidCallback onTap;
+
+  const _ServiceCard({
+    Key? key,
+    required this.service,
+    required this.onTap,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('انتخاب خدمت'),
-        centerTitle: true,
-        backgroundColor: AppTheme.primaryColor,
-        automaticallyImplyLeading: false,
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                // لوگو در پس زمینه
-                Builder(
-                  builder: (context) {
-                    final size = MediaQuery.of(context).size;
-                    final minSide =
-                        size.width < size.height ? size.width : size.height;
-                    final logoSize = minSide * 0.4;
-                    return Center(
-                      child: Opacity(
-                        opacity: 0.1,
-                        child: AppTheme.getLogo(size: logoSize),
-                      ),
-                    );
-                  },
-                ),
-                // محتوای اصلی
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                'لطفاً خدمت مورد نظر خود را انتخاب کنید:',
-                                style:
-                                    AppTheme.titleStyle.copyWith(fontSize: 20),
-                              ),
-                            ),
-                          ),
-                          // IconButton(
-                          //   onPressed: () => _showFullDatabaseDebug(),
-                          //   icon: const Icon(Icons.bug_report,
-                          //       color: AppTheme.primaryColor),
-                          //   tooltip: 'بررسی کامل دیتابیس',
-                          // ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: servicesList.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'هنوز خدماتی از این مجموعه ارائه نشده است',
-                                  style: AppTheme.bodyStyle,
-                                ),
-                              )
-                            : GridView.builder(
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: columns,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
-                                  childAspectRatio: 0.85,
-                                ),
-                                itemCount: servicesList.length,
-                                itemBuilder: (context, index) {
-                                  final service = servicesList[index];
-                                  return _buildServiceCard(service);
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
+    // محاسبه اندازه فونت بر اساس عرض کاشی
+    final screenWidth = ResponsiveHelper.screenWidth(context);
+    double cardFontSize;
 
-  Widget _buildServiceCard(Map<String, dynamic> service) {
-    return GestureDetector(
-      onTap: () => _onServiceSelected(service),
-      child: Container(
-        decoration: AppTheme.cardDecoration.copyWith(
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              spreadRadius: 2,
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              service['label'] ?? 'خدمت',
-              textAlign: TextAlign.center,
-              style: AppTheme.subtitleStyle.copyWith(fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            if (service['description'] != null &&
-                service['description'].isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  service['description'],
-                  textAlign: TextAlign.center,
-                  style: AppTheme.bodyStyle.copyWith(
-                    fontSize: 12,
-                    color: AppTheme.textPrimaryColor.withOpacity(0.7),
+    if (screenWidth >= 1200) {
+      cardFontSize =
+          AppTheme.fontLarge(context) * 1.5; // برای 5 کاشی - بزرگ‌تر شد
+    } else if (screenWidth >= 900) {
+      cardFontSize =
+          AppTheme.fontLarge(context) * 1.6; // برای 4 کاشی - بزرگ‌تر شد
+    } else if (screenWidth >= 600) {
+      cardFontSize =
+          AppTheme.fontMedium(context) * 1.7; // برای 3 کاشی - همون قبل
+    } else if (screenWidth >= 400) {
+      cardFontSize =
+          AppTheme.fontMedium(context) * 1.6; // برای 2 کاشی - همون قبل
+    } else {
+      cardFontSize = AppTheme.fontLarge(context); // برای 1 کاشی - همون قبل
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.paddingMedium(context)),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: AppTheme.cardGradient,
+            borderRadius:
+                BorderRadius.circular(AppTheme.paddingMedium(context)),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Stack(
+            children: [
+              // Background pattern
+              Positioned(
+                top: -15,
+                right: -15,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.primaryColor.withOpacity(0.1),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-          ],
+              Positioned(
+                bottom: -20,
+                left: -20,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.accentColor.withOpacity(0.1),
+                  ),
+                ),
+              ),
+              // Content - کاملاً وسط‌چین
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(AppTheme.paddingSmall(context) * 2),
+                  child: Text(
+                    service['label'] ?? 'خدمت',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: cardFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimaryColor,
+                      letterSpacing: -0.3,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

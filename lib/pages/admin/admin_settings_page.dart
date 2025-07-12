@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/utils/responsive_helper.dart';
 
 class AdminSettingsPage extends StatefulWidget {
   const AdminSettingsPage({Key? key}) : super(key: key);
@@ -65,102 +66,113 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('تنظیمات ادمین'),
-        centerTitle: true,
-        backgroundColor: AppTheme.primaryColor,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'اطلاعات ادمین',
-                        style: AppTheme.subtitleStyle,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _usernameController,
-                        decoration: const InputDecoration(
-                          labelText: 'نام کاربری',
-                          prefixIcon: Icon(Icons.person),
-                          border: OutlineInputBorder(),
+    return ResponsiveHelper.wrapWithDesktopConstraint(
+      context,
+      Scaffold(
+        appBar: AppBar(
+          title: const Text('تنظیمات ادمین'),
+          centerTitle: true,
+          backgroundColor: AppTheme.primaryColor,
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'اطلاعات ادمین',
+                          style: AppTheme.subtitleStyle,
                         ),
-                        readOnly: true,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'لطفاً نام کاربری را وارد کنید';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'رمز عبور جدید',
-                          prefixIcon: Icon(Icons.lock),
-                          border: OutlineInputBorder(),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _usernameController,
+                          decoration: const InputDecoration(
+                            labelText: 'نام کاربری',
+                            prefixIcon: Icon(Icons.person),
+                            border: OutlineInputBorder(),
+                          ),
+                          readOnly: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'لطفاً نام کاربری را وارد کنید';
+                            }
+                            return null;
+                          },
                         ),
-                        validator: (value) {
-                          if (value != null && value.isNotEmpty && value.length < 6) {
-                            return 'رمز عبور باید حداقل 6 کاراکتر باشد';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                          labelText: 'تکرار رمز عبور جدید',
-                          prefixIcon: Icon(Icons.lock_outline),
-                          border: OutlineInputBorder(),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'رمز عبور جدید',
+                            prefixIcon: Icon(Icons.lock),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value != null &&
+                                value.isNotEmpty &&
+                                value.length < 6) {
+                              return 'رمز عبور باید حداقل 6 کاراکتر باشد';
+                            }
+                            return null;
+                          },
                         ),
-                        validator: (value) {
-                          if (_passwordController.text.isNotEmpty && value != _passwordController.text) {
-                            return 'رمز عبور و تکرار آن مطابقت ندارند';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-                      const Text('برای تغییر نام و لوگو ادمین به طراح پیغام دهید',                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 14,
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _confirmPasswordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'تکرار رمز عبور جدید',
+                            prefixIcon: Icon(Icons.lock_outline),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (_passwordController.text.isNotEmpty &&
+                                value != _passwordController.text) {
+                              return 'رمز عبور و تکرار آن مطابقت ندارند';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _saveSettings,
-                          style: AppTheme.primaryButtonStyle,
-                          child: _isLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
-                              : const Text('ذخیره تغییرات'),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'برای تغییر نام و لوگو ادمین به طراح پیغام دهید',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _saveSettings,
+                            style: AppTheme.primaryButtonStyle,
+                            child: _isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                : const Text('ذخیره تغییرات'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+      backgroundColor:
+          AppTheme.primaryLightColor, // حاشیه‌های چپ و راست با رنگ اصلی روشن
     );
   }
 
@@ -171,4 +183,4 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
     _confirmPasswordController.dispose();
     super.dispose();
   }
-} 
+}

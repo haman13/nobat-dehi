@@ -3,6 +3,7 @@ import 'package:flutter_application_1/utils/supabase_config.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:intl/intl.dart';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
+import 'package:flutter_application_1/utils/responsive_helper.dart';
 
 class ReportsPage extends StatefulWidget {
   const ReportsPage({super.key});
@@ -285,192 +286,199 @@ class _ReportsPageState extends State<ReportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('گزارش‌ها'),
-        centerTitle: true,
-        backgroundColor: AppTheme.primaryLightColor3,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadReservations,
-            tooltip: 'بروزرسانی',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+    return ResponsiveHelper.wrapWithDesktopConstraint(
+      context,
+      Scaffold(
+        backgroundColor: Colors.orange[50],
+        appBar: AppBar(
+          title: const Text('گزارش‌ها'),
+          centerTitle: true,
+          backgroundColor: Colors.orange,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadReservations,
+              tooltip: 'بروزرسانی',
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadReservations,
+                          child: const Text('تلاش مجدد'),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
                     children: [
-                      const Icon(Icons.error_outline,
-                          size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(_error!, textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadReservations,
-                        child: const Text('تلاش مجدد'),
+                      // انتخاب نوع گزارش و فیلتر تاریخ
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        color: Colors.orange[50],
+                        child: Column(
+                          children: [
+                            // نوع گزارش
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    value: selectedReportType,
+                                    decoration: const InputDecoration(
+                                      labelText: 'نوع گزارش',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.assessment),
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                          value: 'درآمد',
+                                          child: Text('گزارش درآمد')),
+                                      DropdownMenuItem(
+                                          value: 'رزرو',
+                                          child: Text('گزارش رزرو')),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(() {
+                                        selectedReportType = value!;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // فیلتر تاریخ
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    value: selectedDateRange,
+                                    decoration: const InputDecoration(
+                                      labelText: 'بازه زمانی',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.date_range),
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                          value: 'همه', child: Text('همه')),
+                                      DropdownMenuItem(
+                                          value: 'امروز', child: Text('امروز')),
+                                      DropdownMenuItem(
+                                          value: 'این هفته',
+                                          child: Text('این هفته')),
+                                      DropdownMenuItem(
+                                          value: 'این ماه',
+                                          child: Text('این ماه')),
+                                      DropdownMenuItem(
+                                          value: 'ماه انتخابی',
+                                          child: Text('انتخاب ماه')),
+                                    ],
+                                    onChanged: (String? newValue) {
+                                      if (newValue == 'ماه انتخابی') {
+                                        _selectMonth();
+                                      } else {
+                                        setState(() {
+                                          selectedDateRange = newValue ?? 'همه';
+                                          if (newValue != 'ماه انتخابی') {
+                                            selectedMonth = null;
+                                            selectedMonthDisplay = '';
+                                          }
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            // نمایش ماه انتخابی
+                            if (selectedDateRange == 'ماه انتخابی' &&
+                                selectedMonthDisplay.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border:
+                                        Border.all(color: Colors.orange[300]!),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.calendar_month,
+                                          size: 20, color: Colors.orange[700]),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'ماه انتخابی: $selectedMonthDisplay',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.orange[700],
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      InkWell(
+                                        onTap: _selectMonth,
+                                        child: Icon(Icons.edit,
+                                            size: 18,
+                                            color: Colors.orange[700]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      // نمایش تعداد کل رزروها
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        color: Colors.orange[100],
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                color: Colors.orange[700], size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'مجموع ${filteredReservations.length} رزرو${selectedDateRange != 'همه' ? ' (فیلتر شده از ${allReservations.length} رزرو)' : ' یافت شد'}',
+                              style: TextStyle(
+                                color: Colors.orange[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // محتوای گزارش
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _loadReservations,
+                          child: selectedReportType == 'درآمد'
+                              ? _buildIncomeReport(reportData)
+                              : _buildReservationReport(reportData),
+                        ),
                       ),
                     ],
                   ),
-                )
-              : Column(
-                  children: [
-                    // انتخاب نوع گزارش و فیلتر تاریخ
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: Colors.grey[100],
-                      child: Column(
-                        children: [
-                          // نوع گزارش
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: selectedReportType,
-                                  decoration: const InputDecoration(
-                                    labelText: 'نوع گزارش',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.assessment),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: 'درآمد',
-                                        child: Text('گزارش درآمد')),
-                                    DropdownMenuItem(
-                                        value: 'رزرو',
-                                        child: Text('گزارش رزرو')),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedReportType = value!;
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // فیلتر تاریخ
-                          Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: selectedDateRange,
-                                  decoration: const InputDecoration(
-                                    labelText: 'بازه زمانی',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.date_range),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: 'همه', child: Text('همه')),
-                                    DropdownMenuItem(
-                                        value: 'امروز', child: Text('امروز')),
-                                    DropdownMenuItem(
-                                        value: 'این هفته',
-                                        child: Text('این هفته')),
-                                    DropdownMenuItem(
-                                        value: 'این ماه',
-                                        child: Text('این ماه')),
-                                    DropdownMenuItem(
-                                        value: 'ماه انتخابی',
-                                        child: Text('انتخاب ماه')),
-                                  ],
-                                  onChanged: (String? newValue) {
-                                    if (newValue == 'ماه انتخابی') {
-                                      _selectMonth();
-                                    } else {
-                                      setState(() {
-                                        selectedDateRange = newValue ?? 'همه';
-                                        if (newValue != 'ماه انتخابی') {
-                                          selectedMonth = null;
-                                          selectedMonthDisplay = '';
-                                        }
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // نمایش ماه انتخابی
-                          if (selectedDateRange == 'ماه انتخابی' &&
-                              selectedMonthDisplay.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.blue[200]!),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.calendar_month,
-                                        size: 20, color: Colors.blue[700]),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'ماه انتخابی: $selectedMonthDisplay',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.blue[700],
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    InkWell(
-                                      onTap: _selectMonth,
-                                      child: Icon(Icons.edit,
-                                          size: 18, color: Colors.blue[700]),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    // نمایش تعداد کل رزروها
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      color: Colors.blue[50],
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline,
-                              color: Colors.blue[700], size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'مجموع ${filteredReservations.length} رزرو${selectedDateRange != 'همه' ? ' (فیلتر شده از ${allReservations.length} رزرو)' : ' یافت شد'}',
-                            style: TextStyle(
-                              color: Colors.blue[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // محتوای گزارش
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: _loadReservations,
-                        child: selectedReportType == 'درآمد'
-                            ? _buildIncomeReport(reportData)
-                            : _buildReservationReport(reportData),
-                      ),
-                    ),
-                  ],
-                ),
+      ),
+      backgroundColor: Colors.orange[25], // حاشیه‌های چپ و راست نارنجی کمرنگ
     );
   }
 

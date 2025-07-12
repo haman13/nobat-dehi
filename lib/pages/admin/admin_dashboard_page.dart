@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/theme.dart';
 import 'package:flutter_application_1/utils/supabase_config.dart';
+import 'package:flutter_application_1/utils/responsive_helper.dart';
 import 'admin_settings_page.dart';
 import 'package:flutter_application_1/pages/admin/manage_reservations_page.dart';
 import 'package:flutter_application_1/pages/admin/manage_services_page.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_application_1/pages/admin/manage_users_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:persian_datetime_picker/persian_datetime_picker.dart';
+import 'package:intl/intl.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -176,6 +178,13 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   List<Map<String, dynamic>> _notifications = [];
 
+  // تابع فرمت کردن اعداد با جداکننده 3 رقمی
+  String _formatNumber(int number) {
+    if (number == 0) return '0';
+    final formatter = NumberFormat('#,###', 'en_US');
+    return formatter.format(number);
+  }
+
   String _getStatusText(String status) {
     switch (status) {
       case 'pending':
@@ -225,104 +234,135 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('داشبورد ادمین'),
-        centerTitle: true,
-        backgroundColor: AppTheme.primaryLightColor3,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              await _loadData();
-              await _loadNotifications();
-            },
-            tooltip: 'بروزرسانی',
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AdminSettingsPage(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(_error!, textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () async {
-                          await _loadData();
-                          await _loadNotifications();
-                        },
-                        child: const Text('تلاش مجدد'),
-                      ),
-                    ],
+    return ResponsiveHelper.wrapWithDesktopConstraint(
+      context,
+      Scaffold(
+        backgroundColor: AppTheme.primaryLightColor2,
+        appBar: AppBar(
+          title: const Text('داشبورد ادمین'),
+          centerTitle: true,
+          backgroundColor: AppTheme.primaryColor,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () async {
+                await _loadData();
+                await _loadNotifications();
+              },
+              tooltip: 'بروزرسانی',
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminSettingsPage(),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    await _loadData();
-                    await _loadNotifications();
-                  },
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                );
+              },
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildStatsGrid(),
-                        const SizedBox(height: 24),
-                        _buildQuickActions(),
-                        const SizedBox(height: 24),
-                        _buildNotificationsList(),
-                        const SizedBox(height: 24),
-                        _buildRecentReservations(),
+                        const Icon(Icons.error_outline,
+                            size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(_error!, textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () async {
+                            await _loadData();
+                            await _loadNotifications();
+                          },
+                          child: const Text('تلاش مجدد'),
+                        ),
                       ],
                     ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      await _loadData();
+                      await _loadNotifications();
+                    },
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildStatsGrid(),
+                          const SizedBox(height: 24),
+                          _buildQuickActions(),
+                          const SizedBox(height: 24),
+                          _buildNotificationsList(),
+                          const SizedBox(height: 24),
+                          _buildRecentReservations(),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+      ),
+      backgroundColor:
+          AppTheme.primaryLightColor2, // حاشیه‌های چپ و راست با رنگ اصلی
     );
   }
 
+  // محاسبه تعداد ستون‌ها بر اساس عرض صفحه (مثل صفحه خدمات کاربری)
+  int _calculateColumns() {
+    final screenWidth = ResponsiveHelper.screenWidth(context);
+
+    // بر اساس عرض صفحه تعداد کاشی‌ها را تعیین کن
+    if (screenWidth >= 1200) return 4; // خیلی بزرگ - 4 کاشی
+    if (screenWidth >= 900) return 4; // بزرگ - 4 کاشی
+    if (screenWidth >= 600) return 2; // متوسط/تبلت - 2 کاشی
+    if (screenWidth >= 400) return 2; // موبایل متوسط - 2 کاشی
+    return 1; // موبایل کوچک - 1 کاشی
+  }
+
   Widget _buildStatsGrid() {
+    final columns = _calculateColumns();
+    final screenWidth = ResponsiveHelper.screenWidth(context);
+
+    // محاسبه childAspectRatio بر اساس تعداد کاشی‌ها (90% اندازه)
+    double childAspectRatio;
+    if (columns == 4) {
+      childAspectRatio = (screenWidth >= 1200 ? 1.2 : 1.1) * 1.5;
+    } else if (columns == 2) {
+      childAspectRatio = 1.3 * 1.5;
+    } else {
+      childAspectRatio = 2.5 * 1.5;
+    }
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 1.3,
+      crossAxisCount: columns,
+      mainAxisSpacing: AppTheme.paddingMedium(context),
+      crossAxisSpacing: AppTheme.paddingMedium(context),
+      childAspectRatio: childAspectRatio,
       children: [
         _buildStatCard(
           'رزرو امروز',
           '${stats['todayReservations']}',
-          '${stats['todayIncome']}',
+          _formatNumber(stats['todayIncome']),
           Colors.blue,
         ),
         _buildStatCard(
           'رزرو هفته',
           '${stats['weeklyReservations']}',
-          '${stats['weeklyIncome']}',
+          _formatNumber(stats['weeklyIncome']),
           Colors.green,
         ),
         _buildStatCard(
           'رزرو ماه',
           '${stats['monthlyReservations']}',
-          '${stats['monthlyIncome']}',
+          _formatNumber(stats['monthlyIncome']),
           Colors.orange,
         ),
         _buildStatCard(
@@ -337,55 +377,103 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Widget _buildStatCard(
       String title, String value, String subtitle, Color color) {
+    // محاسبه فونت‌های responsive (مثل صفحه خدمات کاربری)
+    final screenWidth = ResponsiveHelper.screenWidth(context);
+    final columns = _calculateColumns();
+
+    double titleFontSize, valueFontSize, subtitleFontSize;
+    double cardPadding;
+
+    // محاسبه بر اساس تعداد کاشی‌ها
+    if (columns == 4) {
+      if (screenWidth >= 1200) {
+        titleFontSize = AppTheme.fontMedium(context) * 1.1 * 1.2;
+        valueFontSize = AppTheme.fontLarge(context) * 1.2 * 1.2;
+        subtitleFontSize = AppTheme.fontSmall(context) * 1.2 * 1.4;
+        cardPadding = AppTheme.paddingLarge(context);
+      } else {
+        titleFontSize = AppTheme.fontMedium(context);
+        valueFontSize = AppTheme.fontLarge(context) * 1.1;
+        subtitleFontSize = AppTheme.fontSmall(context) * 1.1;
+        cardPadding = AppTheme.paddingMedium(context) * 1.5;
+      }
+    } else if (columns == 2) {
+      titleFontSize = AppTheme.fontMedium(context) * 0.9;
+      valueFontSize = AppTheme.fontLarge(context) * 0.9;
+      subtitleFontSize = AppTheme.fontSmall(context) * 1.1;
+      cardPadding = AppTheme.paddingMedium(context);
+    } else {
+      titleFontSize = AppTheme.fontMedium(context) * 0.8;
+      valueFontSize = AppTheme.fontLarge(context) * 0.8;
+      subtitleFontSize = AppTheme.fontSmall(context) * 1.1;
+      cardPadding = AppTheme.paddingLarge(context);
+    }
+
     return Card(
-      elevation: 4,
+      elevation: 0,
+      margin: EdgeInsets.zero, // حذف margin پیش‌فرض Card
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(AppTheme.borderRadiusLarge(context)),
       ),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(cardPadding),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [color.withOpacity(0.7), color],
+            colors: [color.withOpacity(0.8), color],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius:
+              BorderRadius.circular(AppTheme.borderRadiusLarge(context)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              offset: Offset(0, AppTheme.paddingSmall(context) * 0.5),
+              blurRadius: AppTheme.paddingMedium(context),
+              spreadRadius: 0,
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               title,
-              style: const TextStyle(
+              textAlign: TextAlign.center,
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: titleFontSize,
                 fontWeight: FontWeight.bold,
+                height: 1.2,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: AppTheme.paddingSmall(context)),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 24,
+                fontSize: valueFontSize,
                 fontWeight: FontWeight.bold,
+                height: 1.1,
               ),
             ),
             if (subtitle.isNotEmpty) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: AppTheme.paddingSmall(context) * 0.5),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white70,
-                  fontSize: 14,
+                  fontSize: subtitleFontSize,
+                  height: 1.2,
                 ),
               ),
-              const Text(
+              Text(
                 'تومان',
                 style: TextStyle(
                   color: Colors.white70,
-                  fontSize: 14,
+                  fontSize: subtitleFontSize,
+                  height: 1.2,
                 ),
               ),
             ]
@@ -396,59 +484,75 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Widget _buildQuickActions() {
+    final columns = _calculateColumns();
+    final screenWidth = ResponsiveHelper.screenWidth(context);
+
+    // استفاده از همان spacing کاشی‌های آمار برای یکسان کردن اندازه
+    final spacing = AppTheme.paddingMedium(context);
+
+    // محاسبه childAspectRatio مثل کاشی‌های آمار (90% اندازه)
+    double childAspectRatio;
+    if (columns == 4) {
+      childAspectRatio = (screenWidth >= 1200 ? 1.2 : 1.1) * 1.5;
+    } else if (columns == 2) {
+      childAspectRatio = 1.3 * 1.5;
+    } else {
+      childAspectRatio = 2.5 * 1.5;
+    }
+
+    final actions = [
+      {
+        'title': 'مدیریت رزروها',
+        'icon': Icons.calendar_today,
+        'color': Colors.blue,
+        'onTap': _navigateToManageReservations,
+      },
+      {
+        'title': 'مدیریت خدمات',
+        'icon': Icons.category,
+        'color': Colors.green,
+        'onTap': _navigateToManageServices,
+      },
+      {
+        'title': 'گزارش‌ها',
+        'icon': Icons.bar_chart,
+        'color': Colors.orange,
+        'onTap': _navigateToReports,
+      },
+      {
+        'title': 'مدیریت کاربران',
+        'icon': Icons.people,
+        'color': Colors.purple,
+        'onTap': _navigateToManageUsers,
+      },
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'دسترسی سریع',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: AppTheme.fontMedium(context),
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                'مدیریت رزروها',
-                Icons.calendar_today,
-                Colors.blue,
-                _navigateToManageReservations,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildActionButton(
-                'مدیریت خدمات',
-                Icons.category,
-                Colors.green,
-                _navigateToManageServices,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                'گزارش‌ها',
-                Icons.bar_chart,
-                Colors.orange,
-                _navigateToReports,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildActionButton(
-                'مدیریت کاربران',
-                Icons.people,
-                Colors.purple,
-                _navigateToManageUsers,
-              ),
-            ),
-          ],
+        SizedBox(height: AppTheme.paddingMedium(context)),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: columns,
+          mainAxisSpacing: spacing,
+          crossAxisSpacing: spacing,
+          childAspectRatio: childAspectRatio,
+          children: actions.map((action) {
+            return _buildActionButton(
+              action['title'] as String,
+              action['icon'] as IconData,
+              action['color'] as Color,
+              action['onTap'] as VoidCallback,
+            );
+          }).toList(),
         ),
       ],
     );
@@ -456,27 +560,80 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Widget _buildActionButton(
       String title, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
+    final screenWidth = ResponsiveHelper.screenWidth(context);
+    final columns = _calculateColumns();
+
+    // محاسبه اندازه‌های responsive بر اساس تعداد کاشی‌ها
+    double iconSize, fontSize, buttonPadding;
+
+    if (columns == 4) {
+      if (screenWidth >= 1200) {
+        iconSize = AppTheme.iconLarge(context) * 1.2 * 1.2;
+        fontSize = AppTheme.fontMedium(context) * 1.1 * 1.2;
+        buttonPadding = AppTheme.paddingLarge(context);
+      } else {
+        iconSize = AppTheme.iconLarge(context);
+        fontSize = AppTheme.fontMedium(context);
+        buttonPadding = AppTheme.paddingMedium(context) * 1.5;
+      }
+    } else if (columns == 2) {
+      iconSize = AppTheme.iconMedium(context) * 1.3;
+      fontSize = AppTheme.fontMedium(context) * 0.9;
+      buttonPadding = AppTheme.paddingMedium(context);
+    } else {
+      iconSize = AppTheme.iconLarge(context);
+      fontSize = AppTheme.fontMedium(context) * 0.8;
+      buttonPadding = AppTheme.paddingLarge(context);
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius:
+            BorderRadius.circular(AppTheme.borderRadiusLarge(context)),
+        child: Container(
+          padding: EdgeInsets.all(buttonPadding),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius:
+                BorderRadius.circular(AppTheme.borderRadiusLarge(context)),
+            border: Border.all(
+              color: color.withOpacity(0.3),
+              width: 1.5,
             ),
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.1),
+                offset: Offset(0, AppTheme.paddingSmall(context) * 0.25),
+                blurRadius: AppTheme.paddingSmall(context),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: color,
+                size: iconSize,
+              ),
+              SizedBox(height: AppTheme.paddingSmall(context)),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -486,10 +643,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'رزروهای اخیر',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: AppTheme.fontMedium(context),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -551,10 +708,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '🔔 نوتیفیکیشن‌ها',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: AppTheme.fontMedium(context),
             fontWeight: FontWeight.bold,
           ),
         ),

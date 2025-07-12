@@ -218,7 +218,10 @@ class _AppointmentPageState extends State<AppointmentPage> {
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String>(
                             value: _selectedService,
-                            decoration: AppTheme.textFieldDecoration,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
                             items: _services.map((String service) {
                               return DropdownMenuItem<String>(
                                 value: service,
@@ -242,7 +245,10 @@ class _AppointmentPageState extends State<AppointmentPage> {
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             value: _selectedModel,
-                            decoration: AppTheme.textFieldDecoration,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
                             items: _models[_selectedService]!.map((String model) {
                               return DropdownMenuItem<String>(
                                 value: model,

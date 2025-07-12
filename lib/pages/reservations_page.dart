@@ -614,6 +614,7 @@ class _ReservationsPageState extends State<ReservationsPage> {
   Widget build(BuildContext context) {
     print('🔴 ReservationsPage _phoneNumber: [$_phoneNumber]');
     return Scaffold(
+      backgroundColor: AppTheme.primaryLightColor2,
       appBar: AppBar(
         title: const Text('رزروهای من'),
         backgroundColor: AppTheme.primaryColor,
